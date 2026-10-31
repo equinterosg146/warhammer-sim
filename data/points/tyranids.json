@@ -1,0 +1,1353 @@
+{
+ "source": "Munitorum Field Manual v1.5 (PDF)",
+ "units": {
+  "Barbed Hierodule": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 340
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Barbgaunts": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 5,
+       "label": "5 models",
+       "points": 50
+      },
+      {
+       "models": 10,
+       "label": "10 models",
+       "points": 100
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Biovores": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 60
+      },
+      {
+       "models": 2,
+       "label": "2 models",
+       "points": 100
+      },
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 140
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Broodlord": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 80
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Carnifexes": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 90
+      },
+      {
+       "models": 2,
+       "label": "2 models",
+       "points": 180
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Deathleaper": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 80
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Dimachaeron": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 200
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Exocrine": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 2,
+     "label": "YOUR 1ST TO 2ND UNITS COST",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 135
+      }
+     ]
+    },
+    {
+     "fromCopy": 3,
+     "toCopy": null,
+     "label": "YOUR 3RD + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 145
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Gargoyles": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 10,
+       "label": "10 models",
+       "points": 75
+      },
+      {
+       "models": 20,
+       "label": "20 models",
+       "points": 150
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Genestealers": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 2,
+     "label": "YOUR 1ST TO 2ND UNITS COST",
+     "sizes": [
+      {
+       "models": 5,
+       "label": "5 models",
+       "points": 75
+      },
+      {
+       "models": 10,
+       "label": "10 models",
+       "points": 140
+      }
+     ]
+    },
+    {
+     "fromCopy": 3,
+     "toCopy": null,
+     "label": "YOUR 3RD + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 5,
+       "label": "5 models",
+       "points": 85
+      },
+      {
+       "models": 10,
+       "label": "10 models",
+       "points": 150
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Harpy": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 185
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Harridan": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 1,
+     "label": "YOUR 1ST UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 610
+      }
+     ]
+    },
+    {
+     "fromCopy": 2,
+     "toCopy": null,
+     "label": "YOUR 2ND + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 660
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Haruspex": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 2,
+     "label": "YOUR 1ST TO 2ND UNITS COST",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 125
+      }
+     ]
+    },
+    {
+     "fromCopy": 3,
+     "toCopy": null,
+     "label": "YOUR 3RD + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 135
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Hierophant": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 1,
+     "label": "YOUR 1ST UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 810
+      }
+     ]
+    },
+    {
+     "fromCopy": 2,
+     "toCopy": null,
+     "label": "YOUR 2ND + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 910
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Hive Crone": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 170
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Hive Guard": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 2,
+     "label": "YOUR 1ST TO 2ND UNITS COST",
+     "sizes": [
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 80
+      },
+      {
+       "models": 6,
+       "label": "6 models",
+       "points": 160
+      }
+     ]
+    },
+    {
+     "fromCopy": 3,
+     "toCopy": null,
+     "label": "YOUR 3RD + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 90
+      },
+      {
+       "models": 6,
+       "label": "6 models",
+       "points": 170
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Hive Tyrant": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 195
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Hormagaunts": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 10,
+       "label": "10 models",
+       "points": 70
+      },
+      {
+       "models": 20,
+       "label": "20 models",
+       "points": 120
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Hyperadapted Raveners": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 2,
+     "label": "YOUR 1ST TO 2ND UNITS COST",
+     "sizes": [
+      {
+       "models": 5,
+       "label": "5 models",
+       "points": 165
+      }
+     ]
+    },
+    {
+     "fromCopy": 3,
+     "toCopy": null,
+     "label": "YOUR 3RD + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 5,
+       "label": "5 models",
+       "points": 175
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Lictor": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 60
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Malanthrope": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 75
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Maleceptor": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 2,
+     "label": "YOUR 1ST TO 2ND UNITS COST",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 180
+      }
+     ]
+    },
+    {
+     "fromCopy": 3,
+     "toCopy": null,
+     "label": "YOUR 3RD + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 190
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Mawloc": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 130
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Mucolid Spores": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 30
+      },
+      {
+       "models": 2,
+       "label": "2 models",
+       "points": 60
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Neurogaunts": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 11,
+       "label": "11 models",
+       "points": 45
+      },
+      {
+       "models": 21,
+       "label": "21 models",
+       "points": 90
+      },
+      {
+       "models": 22,
+       "label": "22 models",
+       "points": 90
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Neurolictor": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 2,
+     "label": "YOUR 1ST TO 2ND UNITS COST",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 80
+      }
+     ]
+    },
+    {
+     "fromCopy": 3,
+     "toCopy": null,
+     "label": "YOUR 3RD + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 90
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Neurotyrant": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 120
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Norn Assimilator": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 1,
+     "label": "YOUR 1ST UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 250
+      }
+     ]
+    },
+    {
+     "fromCopy": 2,
+     "toCopy": null,
+     "label": "YOUR 2ND + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 270
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Norn Emissary": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 1,
+     "label": "YOUR 1ST UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 250
+      }
+     ]
+    },
+    {
+     "fromCopy": 2,
+     "toCopy": null,
+     "label": "YOUR 2ND + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 270
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Old One Eye": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 130
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Parasite Of Mortrex": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 65
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Psychophage": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 110
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Pyrovores": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 2,
+     "label": "YOUR 1ST TO 2ND UNITS COST",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 40
+      },
+      {
+       "models": 2,
+       "label": "2 models",
+       "points": 70
+      },
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 100
+      }
+     ]
+    },
+    {
+     "fromCopy": 3,
+     "toCopy": null,
+     "label": "YOUR 3RD + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 50
+      },
+      {
+       "models": 2,
+       "label": "2 models",
+       "points": 80
+      },
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 110
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Raveners": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 2,
+     "label": "YOUR 1ST TO 2ND UNITS COST",
+     "sizes": [
+      {
+       "models": 5,
+       "label": "5 models",
+       "points": 125
+      }
+     ]
+    },
+    {
+     "fromCopy": 3,
+     "toCopy": null,
+     "label": "YOUR 3RD + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 5,
+       "label": "5 models",
+       "points": 135
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Ripper Swarms": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 30
+      },
+      {
+       "models": 2,
+       "label": "2 models",
+       "points": 40
+      },
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 50
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Screamer-killer": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 2,
+     "label": "YOUR 1ST TO 2ND UNITS COST",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 125
+      }
+     ]
+    },
+    {
+     "fromCopy": 3,
+     "toCopy": null,
+     "label": "YOUR 3RD + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 135
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Scythed Hierodule": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 330
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Sky-slasher Swarms": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 60
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Spore Mines": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 55
+      },
+      {
+       "models": 6,
+       "label": "6 models",
+       "points": 110
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Sporocyst": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 145
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Termagants": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 10,
+       "label": "10 models",
+       "points": 55
+      },
+      {
+       "models": 20,
+       "label": "20 models",
+       "points": 110
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Tervigon": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 150
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "The Red Terror": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 120
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "The Swarmlord": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 210
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Toxicrene": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 120
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Trygon": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 135
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Tyranid Prime with Lash Whip": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 75
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Tyranid Warriors With Melee Bio-weapons": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 75
+      },
+      {
+       "models": 6,
+       "label": "6 models",
+       "points": 150
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Tyranid Warriors With Ranged Bio-weapons": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 60
+      },
+      {
+       "models": 6,
+       "label": "6 models",
+       "points": 120
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Tyrannocyte": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 3,
+     "label": "YOUR 1ST TO 3RD UNITS COST",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 80
+      }
+     ]
+    },
+    {
+     "fromCopy": 4,
+     "toCopy": null,
+     "label": "YOUR 4TH + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 90
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Tyrannofex": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": 2,
+     "label": "YOUR 1ST TO 2ND UNITS COST",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 170
+      }
+     ]
+    },
+    {
+     "fromCopy": 3,
+     "toCopy": null,
+     "label": "YOUR 3RD + UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 180
+      }
+     ]
+    }
+   ],
+   "wargearCosts": [
+    {
+     "name": "Acid spray",
+     "points": 10
+    },
+    {
+     "name": "Rupture Cannon",
+     "points": 20
+    }
+   ]
+  },
+  "Tyrant Guard": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 80
+      },
+      {
+       "models": 6,
+       "label": "6 models",
+       "points": 170
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Venomthropes": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 55
+      },
+      {
+       "models": 6,
+       "label": "6 models",
+       "points": 110
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Von Ryan’s Leapers": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 55
+      },
+      {
+       "models": 6,
+       "label": "6 models",
+       "points": 105
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Winged Hive Tyrant": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 185
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Winged Tyranid Prime": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 1,
+       "label": "1 model",
+       "points": 65
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  },
+  "Zoanthropes": {
+   "costTiers": [
+    {
+     "fromCopy": 1,
+     "toCopy": null,
+     "label": "YOUR UNIT COSTS",
+     "sizes": [
+      {
+       "models": 3,
+       "label": "3 models",
+       "points": 90
+      },
+      {
+       "models": 6,
+       "label": "6 models",
+       "points": 190
+      }
+     ]
+    }
+   ],
+   "wargearCosts": []
+  }
+ },
+ "enhancements": {
+  "Power of the Hive Mind": 10,
+  "Hunting Grounds": 30,
+  "Regenerating Monstrosity": 20,
+  "Encircling Horrors": 20,
+  "Synaptic Strategy": 15,
+  "Ominous Presence": 15,
+  "Elevated Might": 30,
+  "Alien Cunning": 30,
+  "Synaptic Goad": 0,
+  "Destabilising Predation": 20,
+  "Synaptic Beacon": 0,
+  "Relentless Hunger": 20,
+  "Monoform Predators": 0,
+  "Stalking Menace": 0,
+  "Ocular Adaptation": 20,
+  "Chameleonic": 15,
+  "Enraged Reserves": 20,
+  "Perfectly Adapted": 15,
+  "Instinctive Defence": 15,
+  "Psychostatic Disruption": 30,
+  "Reinforced Carapace": 0,
+  "Hypersurge Gland": 0,
+  "Cryptophotaic Camouflage": 15,
+  "Synaptoprescience": 30,
+  "Naturalised Camouflage": 30,
+  "Psi-spoor Sensitivity": 0,
+  "Tremor Senses": 20,
+  "Vanguard Intellect": 15,
+  "Synaptic Control": 20,
+  "Synaptic Linchpin": 20,
+  "Stalker": 10,
+  "Null Nodules": 10,
+  "Piercing Talons": 25,
+  "Biophagic Flow (Aura)": 10,
+  "Neuronode": 20,
+  "Trygon Prime": 20,
+  "The Dirgeheart of Kharis (Aura)": 15,
+  "Adaptive Biology": 25,
+  "Monstrous Nemesis": 25,
+  "Adrenalised Onslaught": 15,
+  "Parasitic Biomorphology": 25
+ }
+}

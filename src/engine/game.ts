@@ -67,6 +67,8 @@ export interface GameHooks {
   /** Called when a player can react with a stratagem; resolves when they have chosen (or passed). */
   react: (window: ReactionWindow) => Promise<void>;
   changed: () => void;
+  /** Called when a unit can make a surge move; resolves once the player has moved (or skipped). */
+  surge?: (unitId: string, maxDistance: number, label: string) => Promise<void>;
 }
 
 export interface ShootAssignment {
@@ -559,6 +561,7 @@ export class Game {
     if (kind === 'advance') max += this.state.advance[u.id] ?? 0;
     if (kind === 'charge') max = this.charge?.distance ?? 0;
     if (kind === 'pileIn' || kind === 'consolidate') max = PILE_IN_DISTANCE;
+    if (kind === 'surge') max = this.state.advance[`surge:${u.id}`] ?? 0;
     if (flying && !hasCoreAbility(u, 'Hover')) max -= 2;
     return Math.max(0, max);
   }
@@ -816,6 +819,8 @@ export class Game {
       const target = this.unit(id);
       await this.offerReactions(target.owner, 'targeted', `${u.name} has selected ${target.name} as a target`, [target.id], u.id);
     }
+    // Track alive counts before resolving to detect kills for surge moves.
+    const beforeCounts = new Map(targets.map((id) => [id, aliveModels(this.unit(id)).length]));
     const ctx = this.ctx();
     for (const g of groups) {
       if (aliveModels(g.target).length === 0) continue;
@@ -825,6 +830,36 @@ export class Game {
     // Effects that last "until that enemy unit has attacked".
     this.state.effects = this.state.effects.filter((e) => !e.label.endsWith('(until attacked)'));
     removeDestroyed(this.state);
+    // Surge moves: triggered after shooting kills models in qualifying units.
+    if (this.hooks.surge && this.state.phase === 'shooting') {
+      for (const id of targets) {
+        const target = this.unit(id);
+        if (!onBoard(target) || target.owner === u.owner) continue;
+        const before = beforeCounts.get(id) ?? 0;
+        if (aliveModels(target).length >= before) continue; // no kills
+        const sa = this.surgeAbilityOf(target);
+        if (!sa) continue;
+        const [roll] = await this.roll({ who: target.owner, kind: 'other', label: `${sa.label} (${target.name}): D6 surge roll`, count: 1 });
+        const maxDist = roll + sa.bonus;
+        this.state.advance[`surge:${target.id}`] = maxDist;
+        this.log(`${target.name} – ${sa.label}: can surge up to ${maxDist}" (rolled ${roll}${sa.bonus ? `+${sa.bonus}` : ''}).`, 'move', target.owner);
+        await this.hooks.surge(target.id, maxDist, sa.label);
+        delete this.state.advance[`surge:${target.id}`];
+      }
+    }
+  }
+
+  /** Returns surge ability info if a unit can make a surge move after taking fire. */
+  private surgeAbilityOf(u: UnitState): { label: string; bonus: number } | null {
+    if (aliveModels(u).some((m) => modelDatasheetHas(u, m, 'Blistering Assault'))) return { label: 'Blistering Assault', bonus: 2 };
+    const hasInsurountableOdds = unitHasKeyword(u, 'Endless Multitude') && this.state.armies[u.owner].detachmentIds.some((id) => {
+      const det = BUNDLES[u.faction]?.detachmentById.get(id);
+      return det?.abilities.some((a) => a.name === 'Insurmountable Odds') ?? false;
+    });
+    if (hasInsurountableOdds) return { label: 'Insurmountable Odds', bonus: 0 };
+    const hasAggressiveLeader = aliveModels(u).some((m) => modelDatasheetHas(u, m, 'Aggressive Leader-beast'));
+    if (hasAggressiveLeader) return { label: 'Aggressive Leader-beast', bonus: 0 };
+    return null;
   }
 
   // ---- Charge phase (11) ------------------------------------------------------------------

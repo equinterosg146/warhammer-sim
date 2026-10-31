@@ -50,6 +50,8 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
   const [notice, setNotice] = useState<string | null>(null);
   /** Rapid Ingress during the opponent's turn: the reaction waits until the unit is placed. */
   const [arrival, setArrival] = useState<{ unitId: string; resolve: () => void } | null>(null);
+  /** Surge move: reaction pauses until the player has moved the unit (or skipped). */
+  const [surge, setSurge] = useState<{ unitId: string; maxDist: number; label: string; resolve: () => void } | null>(null);
   const aiRef = useRef(new Opponent(450));
   const aiRunning = useRef(false);
   /** "Don't ask again this phase": turn and phase the player muted stratagem prompts for. */
@@ -77,6 +79,11 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
         if (window.player === 'ai') return aiRef.current.react(game, window);
         if (skipPrompts.current === `${game.state.turn}:${game.state.phase}`) return;
         await new Promise<void>((resolve) => setReaction({ window, resolve }));
+      },
+      surge: async (unitId, maxDist, label) => {
+        const u = game.state.units.find((x) => x.id === unitId);
+        if (!u || u.owner !== 'player') return; // AI ignores surge for now
+        await new Promise<void>((resolve) => setSurge({ unitId, maxDist, label, resolve }));
       },
       changed: () => {
         force();
@@ -120,6 +127,16 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
     setMode((m) => (m?.kind === 'charge' ? m : { kind: 'charge', targets: [] }));
     setDraft((d) => d ?? new Map(aliveModels(unit).map((x) => [x.id, { x: x.x, y: x.y }])));
   }, [chargingId, s.active, s.units]);
+
+  // When a surge move becomes available, auto-select the unit and enter move mode.
+  useEffect(() => {
+    if (!surge) return;
+    const unit = s.units.find((u) => u.id === surge.unitId);
+    if (!unit) return;
+    setSelectedId(surge.unitId);
+    setMode({ kind: 'move', move: 'surge', flying: false });
+    setDraft(new Map(aliveModels(unit).map((x) => [x.id, { x: x.x, y: x.y }])));
+  }, [surge?.unitId]);
 
   // Keep the newest log lines in view.
   const logRef = useRef<HTMLDivElement>(null);
@@ -281,6 +298,20 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
       done();
       return;
     }
+    if (surge && mode.kind === 'move' && mode.move === 'surge') {
+      // Apply position changes directly (surge is outside normal movement phase).
+      for (const m of aliveModels(selected)) {
+        const p = draft.get(m.id);
+        if (p) { m.x = p.x; m.y = p.y; }
+      }
+      game.log(`${selected.name} makes a surge move.`, 'move', selected.owner);
+      game.changed();
+      const done = surge.resolve;
+      setSurge(null);
+      resetInteraction();
+      done();
+      return;
+    }
     if (mode.kind === 'deploy') game.deploy(selected.id, draft);
     else if (mode.kind === 'ingress') await game.move(selected.id, 'ingress', draft);
     else if (mode.kind === 'move') await game.move(selected.id, mode.move, draft, mode.flying);
@@ -316,7 +347,7 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
         <span className="small muted">Furthest model moves {Math.max(...check.distances.values()).toFixed(1)}".</span>
       ) : null}
       <div className="row">
-        <button className="primary" onClick={confirmDraft} disabled={!draft || (game.busy && !arrival)}>
+        <button className="primary" onClick={confirmDraft} disabled={!draft || (game.busy && !arrival && !surge)}>
           {confirmLabel}
         </button>
         <button
@@ -739,6 +770,18 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
           <b>Rapid Ingress: place {selected.name}</b>
           <span className="small muted">{selected.deepStrike ? 'Anywhere more than 8" from enemy units (Deep Strike).' : 'Wholly within 6" of a battlefield edge and more than 8" from enemy units.'} Click the board, then drag to adjust.</span>
           {draftControls('Arrive here')}
+        </div>
+      );
+    }
+    if (surge && selected) {
+      return (
+        <div className="card col">
+          <b style={{ color: 'var(--gold)' }}>{surge.label}: surge move for {selected.name}</b>
+          <span className="small muted">Move up to {surge.maxDist}" (dashed rings). Drag models or click to reposition, then confirm.</span>
+          {draftControls('Surge here')}
+          <button className="small muted" onClick={() => { const done = surge.resolve; setSurge(null); resetInteraction(); done(); }}>
+            Skip surge move
+          </button>
         </div>
       );
     }

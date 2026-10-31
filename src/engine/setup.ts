@@ -42,5 +42,8 @@ export function newGame(o: NewGameOptions): GameState {
     log: [{ turn: -1, phase: 'deployment', player: null, text: 'Deployment: set up your units in your deployment zone (the bottom 12"). Players take turns placing one unit at a time.', kind: 'coach' }],
     settings: { difficulty: o.difficulty, dice: o.dice },
     winner: null,
+    advance: {},
+    charge: null,
+    fight: null,
   };
 }

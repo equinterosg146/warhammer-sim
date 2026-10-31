@@ -194,6 +194,12 @@ export interface GameState {
     dice: Record<PlayerId, DiceMode>;
   };
   winner: PlayerId | 'draw' | null;
+  /** Advance rolls made this phase, by unit id. */
+  advance: Record<string, number>;
+  /** A charge that has been rolled but not yet moved. */
+  charge: { unitId: string; distance: number } | null;
+  /** Where the Fight phase is up to. */
+  fight: { step: 'pileIn' | 'fight' | 'consolidate' | 'done'; done: PlayerId[]; picker: PlayerId; passes: PlayerId[] } | null;
 }
 
 export const other = (p: PlayerId): PlayerId => (p === 'player' ? 'ai' : 'player');

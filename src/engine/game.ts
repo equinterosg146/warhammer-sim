@@ -104,10 +104,19 @@ export class Game {
   state: GameState;
   hooks: GameHooks;
   busy = false;
-  /** Advance roll made for a unit this phase. */
-  advanceRolls = new Map<string, number>();
-  charge: ChargeState | null = null;
-  fight: FightState | null = null;
+
+  get charge(): ChargeState | null {
+    return this.state.charge;
+  }
+  set charge(v: ChargeState | null) {
+    this.state.charge = v;
+  }
+  get fight(): FightState | null {
+    return this.state.fight;
+  }
+  set fight(v: FightState | null) {
+    this.state.fight = v;
+  }
 
   constructor(state: GameState, hooks: GameHooks) {
     this.state = state;
@@ -260,7 +269,7 @@ export class Game {
 
   private async beginPhase() {
     const s = this.state;
-    this.advanceRolls.clear();
+    this.state.advance = {};
     this.charge = null;
     this.fight = null;
     // Effects that last until the start of the player's next Command phase.
@@ -471,7 +480,7 @@ export class Game {
   maxMove(u: UnitState, m: ModelState, kind: MoveKind, flying: boolean): number {
     const bonus = modsFor(this.state, u, m).reduce((s, x) => s + (x.kind === 'move' ? x.delta : 0), 0);
     let max = moveOf(u, m) + bonus;
-    if (kind === 'advance') max += this.advanceRolls.get(u.id) ?? 0;
+    if (kind === 'advance') max += this.state.advance[u.id] ?? 0;
     if (kind === 'charge') max = this.charge?.distance ?? 0;
     if (kind === 'pileIn' || kind === 'consolidate') max = PILE_IN_DISTANCE;
     if (flying && !hasCoreAbility(u, 'Hover')) max -= 2;
@@ -481,9 +490,9 @@ export class Game {
   async rollAdvance(unitId: string): Promise<number> {
     return this.run(async () => {
       const u = this.unit(unitId);
-      if (this.advanceRolls.has(u.id)) return this.advanceRolls.get(u.id)!;
+      if ((u.id in this.state.advance)) return this.state.advance[u.id];
       const [v] = await this.roll({ who: u.owner, kind: 'advance', label: `Advance roll for ${u.name}`, count: 1 });
-      this.advanceRolls.set(u.id, v);
+      this.state.advance[u.id] = v;
       this.log(`${u.name} rolls ${v} to advance (moves up to ${moveOf(u, aliveModels(u)[0]) + v}").`, 'move', u.owner);
       return v;
     });
@@ -513,7 +522,7 @@ export class Game {
         this.log(`${u.name} remains stationary.`, 'move', u.owner);
         return { ok: true, problems: [], distances: new Map() };
       }
-      if (kind === 'advance' && !this.advanceRolls.has(u.id)) throw new Error('Roll to advance first');
+      if (kind === 'advance' && !(u.id in this.state.advance)) throw new Error('Roll to advance first');
       const check = this.checkUnitMove(unitId, kind, positions, flying);
       if (!check.ok) return check;
       if (kind === 'fallBack' && u.battleShocked) {
@@ -524,7 +533,7 @@ export class Game {
       u.flags.move = kind;
       u.flags.flying = flying;
       if (kind === 'ingress') u.status = 'onBoard';
-      this.log(`${u.name} makes ${kind === 'fallBack' ? 'a fall-back' : kind === 'ingress' ? 'an ingress' : `a ${kind}`} move${flying ? ', taking to the skies' : ''}.`, 'move', u.owner);
+      this.log(`${u.name} makes ${({ fallBack: 'a fall-back', ingress: 'an ingress', advance: 'an advance', normal: 'a normal' } as Record<string, string>)[kind] ?? `a ${kind}`} move${flying ? ', taking to the skies' : ''}.`, 'move', u.owner);
       await this.offerReactions(other(u.owner), 'enemyMoved', `${u.name} just ended a move`, this.unitsOf(other(u.owner)).filter((x) => onBoard(x) && unitDistance(x, u) <= 9).map((x) => x.id), u.id);
       return check;
     });
@@ -860,6 +869,7 @@ export class Game {
         this.fight.done = [];
         for (const u of this.state.units.filter((x) => onBoard(x))) if (isEngaged(this.state, u)) u.flags.fightEligible = true;
         this.fight.picker = this.nextPicker(this.state.active);
+        if (this.fightStepOver()) this.startConsolidation();
       } else if (this.fight.step === 'consolidate') {
         this.fight.step = 'done';
       }

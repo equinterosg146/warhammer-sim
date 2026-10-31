@@ -439,7 +439,7 @@ export class Opponent {
       for (const u of units) {
         const targets = game.pileInTargets(u);
         if (targets.length === 0) continue;
-        const positions = engagePositions(s, u, targets.map((t) => t.id), 3);
+        const positions = engagePositions(s, u, targets.map((t) => t.id), 3, f.step === 'pileIn' ? 'pileIn' : 'consolidate');
         if (game.checkPileIn(u.id, positions, f.step === 'pileIn' ? 'pileIn' : 'consolidate').ok) {
           await game.pileIn(u.id, positions, f.step === 'pileIn' ? 'pileIn' : 'consolidate');
           await sleep(this.pace / 2);

@@ -2,7 +2,7 @@
 // charging / piling in towards enemy models. Used by the computer opponent and by the
 // "place for me" buttons; every result is still checked by movement.checkMove.
 import { add, dist, edgeDistance, len, scale, sub, type Vec } from './geometry';
-import { checkMove, ENGAGEMENT_RANGE, type MoveRules } from './movement';
+import { checkMove, ENGAGEMENT_RANGE, obstaclesFor, pathLength, type MoveRules } from './movement';
 import { aliveModels, onBoard, type GameState, type ModelState, type UnitState } from './state';
 
 /** Models in a compact block around a centre point, rows along x, spaced so neighbours are in coherency. */
@@ -69,12 +69,15 @@ const enemyModels = (state: GameState, unit: UnitState, targetIds?: string[]) =>
  * Moves each model towards base contact with the closest model of the target units, as for a charge
  * or pile-in. Models are handled closest first; each tries spots around its target model.
  */
-export function engagePositions(state: GameState, unit: UnitState, targetIds: string[], maxDistance: number): Map<string, Vec> {
+export function engagePositions(state: GameState, unit: UnitState, targetIds: string[], maxDistance: number, kind: 'charge' | 'pileIn' | 'consolidate' = 'charge'): Map<string, Vec> {
   const targets = enemyModels(state, unit, targetIds);
   const out = new Map<string, Vec>();
   if (targets.length === 0) return out;
   const blockers = state.units.filter((u) => onBoard(u)).flatMap((u) => aliveModels(u).filter((m) => !aliveModels(unit).includes(m)));
   const placed: { x: number; y: number; r: number }[] = [];
+  // The real distance along the path around enemy models and walls, not just the straight line.
+  const reach = (m: ModelState, p: Vec) =>
+    pathLength(m, p, m.r, obstaclesFor(state, unit, m, kind, false), state.battlefield.width, state.battlefield.height, maxDistance + 0.5);
   const free = (p: Vec, r: number) =>
     p.x > r && p.y > r && p.x < state.battlefield.width - r && p.y < state.battlefield.height - r &&
     blockers.every((b) => dist(p, b) >= b.r + r - 1e-3) &&
@@ -95,7 +98,7 @@ export function engagePositions(state: GameState, unit: UnitState, targetIds: st
       for (let k = 0; k < 24 && !best; k++) {
         const a = base + (k % 2 === 0 ? 1 : -1) * Math.ceil(k / 2) * (Math.PI / 12);
         const p = { x: t.x + Math.cos(a) * (t.r + m.r + 0.02), y: t.y + Math.sin(a) * (t.r + m.r + 0.02) };
-        if (dist(m, p) <= maxDistance - 0.02 && free(p, m.r)) best = p;
+        if (dist(m, p) <= maxDistance - 0.02 && free(p, m.r) && reach(m, p) <= maxDistance - 0.02) best = p;
       }
       if (best) break;
     }
@@ -106,7 +109,7 @@ export function engagePositions(state: GameState, unit: UnitState, targetIds: st
       const step = Math.min(maxDistance - 0.02, Math.max(0, d - t.r - m.r - 0.05));
       for (const f of [1, 0.75, 0.5, 0.25, 0]) {
         const p = add(m, scale(sub(t, m), (step * f) / d));
-        if (free(p, m.r)) {
+        if (free(p, m.r) && (f === 0 || reach(m, p) <= maxDistance - 0.02)) {
           best = p;
           break;
         }

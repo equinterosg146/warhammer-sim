@@ -5,7 +5,17 @@ import { needsTarget, type Game, type ReactionWindow } from '../engine/game';
 import { sectionOf, stratagemText } from '../engine/stratagems';
 
 /** Offers the player the stratagems they can use at this moment of the opponent's (or their own) turn. */
-export function ReactionDialog({ game, window, onDone }: { game: Game; window: ReactionWindow; onDone: (used: { stratagem: Stratagem; unitId: string | null } | null) => void }) {
+export function ReactionDialog({
+  game,
+  window,
+  onDone,
+  onSkipPhase,
+}: {
+  game: Game;
+  window: ReactionWindow;
+  onDone: (used: { stratagem: Stratagem; unitId: string | null } | null) => void;
+  onSkipPhase: () => void;
+}) {
   const [choice, setChoice] = useState<Record<string, string>>({});
   return (
     <div className="overlay">
@@ -51,7 +61,19 @@ export function ReactionDialog({ game, window, onDone }: { game: Game; window: R
             </div>
           );
         })}
-        <button onClick={() => onDone(null)}>No stratagem, carry on</button>
+        <div className="row">
+          <button className="grow" onClick={() => onDone(null)}>
+            No stratagem, carry on
+          </button>
+          <button
+            className="ghost small"
+            onClick={() => {
+              onSkipPhase();
+              onDone(null);
+            }}>
+            Don't ask again this phase
+          </button>
+        </div>
       </div>
     </div>
   );

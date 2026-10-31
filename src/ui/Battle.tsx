@@ -16,6 +16,7 @@ import { Board, type Aim, type Ring } from './Board';
 import { Coach } from './Coach';
 import { dangerMap } from './danger';
 import { DiceDialog } from './DiceDialog';
+import { loadGame } from './store';
 import { ReactionDialog } from './ReactionDialog';
 import { UnitPanel } from './UnitPanel';
 
@@ -50,11 +51,15 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
   const [arrival, setArrival] = useState<{ unitId: string; resolve: () => void } | null>(null);
   const aiRef = useRef(new Opponent(450));
   const aiRunning = useRef(false);
+  /** "Don't ask again this phase": turn and phase the player muted stratagem prompts for. */
+  const skipPrompts = useRef<string | null>(null);
   const saveTimer = useRef<number | null>(null);
   const gameRef = useRef<Game | null>(null);
 
   if (!gameRef.current) {
-    const state: GameState = structuredClone(initial);
+    // The latest autosave of this game wins, so reopening the screen never goes back in time.
+    const saved = loadGame();
+    const state: GameState = structuredClone(saved && saved.armies.player.name === initial.armies.player.name ? saved : initial);
     const auto = autoRoller();
     const game: Game = new Game(state, {
       roll: async (req) => {
@@ -69,6 +74,7 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
       },
       react: async (window) => {
         if (window.player === 'ai') return aiRef.current.react(game, window);
+        if (skipPrompts.current === `${game.state.turn}:${game.state.phase}`) return;
         await new Promise<void>((resolve) => setReaction({ window, resolve }));
       },
       changed: () => {
@@ -102,6 +108,23 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
       }
     })();
   });
+
+  // A charge that was rolled but not moved (e.g. after reopening the game) picks up where it was.
+  const chargingId = s.charge?.unitId ?? null;
+  useEffect(() => {
+    if (!chargingId || s.active !== 'player') return;
+    const unit = s.units.find((u) => u.id === chargingId);
+    if (!unit) return;
+    setSelectedId(chargingId);
+    setMode((m) => (m?.kind === 'charge' ? m : { kind: 'charge', targets: [] }));
+    setDraft((d) => d ?? new Map(aliveModels(unit).map((x) => [x.id, { x: x.x, y: x.y }])));
+  }, [chargingId, s.active, s.units]);
+
+  // Keep the newest log lines in view.
+  const logRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    logRef.current?.scrollTo(0, logRef.current.scrollHeight);
+  }, [s.log.length]);
 
   const resetInteraction = () => {
     setMode(null);
@@ -584,7 +607,7 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
               draftControls(step === 'pileIn' ? 'Confirm pile in' : 'Confirm consolidation')
             ) : (
               <div className="row">
-                <button onClick={() => startMode({ kind: 'pile', step }, selected, engagePositions(s, selected, game.pileInTargets(selected).map((t) => t.id), 3))}>Move for me</button>
+                <button onClick={() => startMode({ kind: 'pile', step }, selected, engagePositions(s, selected, game.pileInTargets(selected).map((t) => t.id), 3, step))}>Move for me</button>
                 <button onClick={() => startMode({ kind: 'pile', step }, selected)}>Move by hand</button>
               </div>
             )
@@ -799,10 +822,9 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
           {selected ? <UnitPanel game={game} unit={selected} /> : <span className="small muted">Click a unit on the board to see its datasheet, abilities and what is buffing it.</span>}
           <div className="card col">
             <h3>Battle log</h3>
-            <div className="log">
+            <div className="log" ref={logRef}>
               {s.log
                 .slice(-80)
-                .reverse()
                 .map((l, i) => (
                   <span key={i} className={`${l.kind ?? ''} ${l.player === 'ai' ? 'ai' : ''}`}>
                     {l.text}
@@ -839,6 +861,9 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
         <ReactionDialog
           game={game}
           window={reaction.window}
+          onSkipPhase={() => {
+            skipPrompts.current = `${game.state.turn}:${game.state.phase}`;
+          }}
           onDone={async (used) => {
             const r = reaction.resolve;
             setReaction(null);

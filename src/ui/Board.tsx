@@ -3,6 +3,7 @@ import { useRef, useState, type PointerEvent as ReactPointerEvent } from 'react'
 import { centreOf } from '../engine/battlefield';
 import { dist, type Vec } from '../engine/geometry';
 import { aliveModels, onBoard, type GameState, type UnitState } from '../engine/state';
+import { unitSprite, SPRITE_LIGHT } from './sprites';
 
 export interface Aim {
   from: Vec;
@@ -223,6 +224,11 @@ export function Board(props: BoardProps) {
                 const p = posOf(u, m.id, m.x, m.y);
                 const moved = u.id === draftUnitId && draft?.get(m.id) && (draft.get(m.id)!.x !== m.x || draft.get(m.id)!.y !== m.y);
                 const bad = props.badModels.has(m.id);
+                const outlineStroke = bad ? '#ec6a7e' : selected ? '#ffffff' : hl ?? (u.battleShocked ? '#f2a65a' : OWNER_STROKE[u.owner]);
+                const outlineW = bad || selected || hl ? 0.14 : 0.06;
+                const Sprite = unitSprite(u.name);
+                const spriteFill = OWNER_FILL[u.owner];
+                const spriteLight = SPRITE_LIGHT[u.owner];
                 return (
                   <g key={m.id} onPointerDown={(e) => startModelDrag(e, u, m.id)}>
                     {moved && u.status === 'onBoard' ? (
@@ -231,13 +237,20 @@ export function Board(props: BoardProps) {
                         <line x1={m.x} y1={m.y} x2={p.x} y2={p.y} stroke="#ffffff44" strokeWidth={0.05} />
                       </>
                     ) : null}
+                    {/* Background fill circle */}
+                    <circle cx={p.x} cy={p.y} r={m.r} fill={spriteFill} />
+                    {/* GBA-style sprite, rendered in unit space (r=1.0) */}
+                    <g transform={`translate(${p.x},${p.y}) scale(${m.r})`} pointerEvents="none">
+                      <Sprite fill={spriteFill} light={spriteLight} />
+                    </g>
+                    {/* Outline ring (selection, highlight, battle-shock) */}
                     <circle
                       cx={p.x}
                       cy={p.y}
                       r={m.r}
-                      fill={OWNER_FILL[u.owner]}
-                      stroke={bad ? '#ec6a7e' : selected ? '#ffffff' : hl ?? (u.battleShocked ? '#f2a65a' : OWNER_STROKE[u.owner])}
-                      strokeWidth={bad || selected || hl ? 0.14 : 0.06}
+                      fill="none"
+                      stroke={outlineStroke}
+                      strokeWidth={outlineW}
                       strokeDasharray={u.battleShocked ? '0.2 0.12' : undefined}
                     />
                     {m.character ? <circle cx={p.x} cy={p.y} r={m.r * 0.45} fill="none" stroke="#e9c46a" strokeWidth={0.08} /> : null}

@@ -9,7 +9,7 @@ import type { MoveCheck } from '../engine/movement';
 import { engagePositions, formation } from '../engine/placement';
 import { armyStratagems, sectionOf, stratagemText } from '../engine/stratagems';
 import { aliveModels, onBoard, TURN_PHASES, type GameState, type MoveKind, type UnitState } from '../engine/state';
-import { hasCoreAbility, modelWeapons } from '../engine/units';
+import { hasCoreAbility, modelWeapons, unitHasKeyword } from '../engine/units';
 import { canSeeUnit, hasCover } from '../engine/visibility';
 import type { Stratagem } from '../data/types';
 import { Board, type Aim, type Ring } from './Board';
@@ -30,7 +30,7 @@ type Mode =
 const RE_ROLLABLE = ['hit', 'wound', 'save', 'damage', 'attacks', 'charge', 'advance', 'hazard'];
 
 export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave: (g: GameState) => void; onQuit: (finished: boolean) => void }) {
-  const [, force] = useReducer((x: number) => x + 1, 0);
+  const [version, force] = useReducer((x: number) => x + 1, 0);
   const [dice, setDice] = useState<{ req: DiceRequest; resolve: (v: number[]) => void } | null>(null);
   const [review, setReview] = useState<{ req: DiceRequest; values: number[]; resolve: (v: number[]) => void } | null>(null);
   const [reaction, setReaction] = useState<{ window: ReactionWindow; resolve: () => void } | null>(null);
@@ -41,6 +41,7 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
   const [hover, setHover] = useState<string | null>(null);
   const [moveTogether, setMoveTogether] = useState(true);
   const [showDanger, setShowDanger] = useState(false);
+  const [showSynapse, setShowSynapse] = useState(false);
   const [assign, setAssign] = useState<Record<string, { profile: string; targetId: string }>>({});
   const [shootType, setShootType] = useState<'normal' | 'assault' | 'closeQuarters' | 'indirect'>('normal');
   const [fightTarget, setFightTarget] = useState<string>('');
@@ -232,16 +233,25 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
   }, [selected, hover, s, s.phase]);
 
   const rings: Ring[] = useMemo(() => {
-    if (!selected || !mode || !draft) return [];
-    const models = aliveModels(selected);
-    if (mode.kind === 'move' || mode.kind === 'pile' || mode.kind === 'charge') {
-      const kind = mode.kind === 'move' ? mode.move : mode.kind === 'charge' ? 'charge' : mode.step;
-      const flying = mode.kind === 'move' && mode.flying;
-      const list = models.length <= 12 ? models : [models[0]];
-      return list.map((m) => ({ x: m.x, y: m.y, r: game.maxMove(selected, m, kind, flying), color: '#ffffff40' }));
+    const result: Ring[] = [];
+    if (selected && mode && draft) {
+      const models = aliveModels(selected);
+      if (mode.kind === 'move' || mode.kind === 'pile' || mode.kind === 'charge') {
+        const kind = mode.kind === 'move' ? mode.move : mode.kind === 'charge' ? 'charge' : mode.step;
+        const flying = mode.kind === 'move' && mode.flying;
+        const list = models.length <= 12 ? models : [models[0]];
+        result.push(...list.map((m) => ({ x: m.x, y: m.y, r: game.maxMove(selected, m, kind, flying), color: '#ffffff40' })));
+      }
     }
-    return [];
-  }, [selected, mode, draft, game]);
+    if (showSynapse) {
+      for (const u of game.unitsOf('player')) {
+        if (!onBoard(u) || !unitHasKeyword(u, 'Synapse')) continue;
+        for (const m of aliveModels(u)) result.push({ x: m.x, y: m.y, r: 6, color: '#c49bff55' });
+      }
+    }
+    return result;
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, mode, draft, showSynapse, version, game]);
 
   const highlight = useMemo(() => {
     const map = new Map<string, string>();
@@ -423,6 +433,19 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
             ))}
           </div>
         ) : null}
+        {game.canSpawnTermagants('player').map(({ tervigon, targets }) => (
+          <div key={tervigon.id} className="col" style={{ gap: 4 }}>
+            <b className="small" style={{ color: 'var(--gold)' }}>Spawn Termagants ({tervigon.name})</b>
+            {targets.map((t) => (
+              <div key={t.id} className="row" style={{ gap: 8 }}>
+                <span className="small grow">{t.name} ({t.models.filter((m) => m.w === 0).length} casualties)</span>
+                <button className="small primary" onClick={() => game.spawnTermagants(tervigon.id, t.id)}>
+                  Restore D3+3
+                </button>
+              </div>
+            ))}
+          </div>
+        ))}
       </div>
     );
   };
@@ -747,6 +770,9 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
           <b>Round {Math.max(1, s.round)} / 5</b>
           <span className={mine ? 'badge synapse' : 'badge marine'}>{s.phase === 'deployment' ? 'DEPLOYMENT' : mine ? 'YOUR TURN' : 'ULTRAMARINES TURN'}</span>
           <span className="muted small grow">Right-click and drag to measure. Grid squares are 6".</span>
+          <label className="row small" style={{ gap: 4 }}>
+            <input type="checkbox" checked={showSynapse} onChange={(e) => setShowSynapse(e.target.checked)} /> Synapse (6" rings)
+          </label>
           <label className="row small" style={{ gap: 4 }}>
             <input type="checkbox" checked={showDanger} onChange={(e) => setShowDanger(e.target.checked)} /> Danger (enemy guns)
           </label>

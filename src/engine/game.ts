@@ -482,6 +482,54 @@ export class Game {
     return passed;
   }
 
+  /** Returns {tervigon, targets} for each Tervigon that can restore Termagants this command phase (Spawn Termagants ability). */
+  canSpawnTermagants(player: PlayerId): { tervigon: UnitState; targets: UnitState[] }[] {
+    const s = this.state;
+    if (s.phase !== 'command' || s.active !== player) return [];
+    const out: { tervigon: UnitState; targets: UnitState[] }[] = [];
+    for (const u of this.unitsOf(player).filter(onBoard)) {
+      if (s.checklist.includes(`spawn:${u.id}`)) continue;
+      if (!aliveModels(u).some((m) => modelDatasheetHas(u, m, 'Spawn Termagants'))) continue;
+      const targets = this.unitsOf(player).filter(
+        (t) => onBoard(t) && t.models.some((m) => m.w === 0) && isTermagantUnit(t) && unitDistance(u, t) <= 6,
+      );
+      if (targets.length > 0) out.push({ tervigon: u, targets });
+    }
+    return out;
+  }
+
+  /** Restores up to D3+3 destroyed Termagant models to a unit within 6" of the Tervigon. */
+  async spawnTermagants(tervigonId: string, targetUnitId: string): Promise<void> {
+    return this.run(async () => {
+      const tervigon = this.unit(tervigonId);
+      const target = this.unit(targetUnitId);
+      if (!this.canSpawnTermagants(tervigon.owner).some((x) => x.tervigon.id === tervigonId && x.targets.some((t) => t.id === targetUnitId))) return;
+      const [raw] = await this.roll({ who: tervigon.owner, kind: 'other', label: `Spawn Termagants: D3 roll for ${tervigon.name}`, count: 1 });
+      const count = Math.ceil(raw / 2) + 3;
+      const dead = target.models.filter((m) => m.w === 0).slice(0, count);
+      const alive = aliveModels(target);
+      if (alive.length > 0) {
+        const cx = alive.reduce((s, a) => s + a.x, 0) / alive.length;
+        const cy = alive.reduce((s, a) => s + a.y, 0) / alive.length;
+        dead.forEach((m, i) => {
+          const angle = (i / Math.max(1, dead.length)) * Math.PI * 2;
+          m.x = cx + Math.cos(angle) * m.r * 2.5;
+          m.y = cy + Math.sin(angle) * m.r * 2.5;
+          m.w = m.maxW;
+        });
+      } else {
+        dead.forEach((m) => { m.w = m.maxW; });
+      }
+      this.state.checklist.push(`spawn:${tervigonId}`);
+      const restored = dead.length;
+      const d3 = Math.ceil(raw / 2);
+      this.log(
+        `${tervigon.name} – Spawn Termagants: ${restored} model${restored === 1 ? '' : 's'} restored to ${target.name} (D3=${d3}+3=${count}${restored < count ? `, only ${restored} were available` : ''}).`,
+        'info', tervigon.owner,
+      );
+    });
+  }
+
   markChecklist(item: string) {
     if (!this.state.checklist.includes(item)) this.state.checklist.push(item);
     this.changed();
@@ -1206,6 +1254,10 @@ const sEffect = (s: Stratagem) => sectionOf(stratagemText(s), 'EFFECT');
 function modelDatasheetHas(u: UnitState, m: ModelState, ability: string): boolean {
   const d = BUNDLES[u.faction].datasheetById.get(u.members[m.member].datasheetId);
   return d !== undefined && [...d.abilities.faction, ...d.abilities.datasheet, ...d.abilities.other].some((a) => a.name === ability);
+}
+
+function isTermagantUnit(u: UnitState): boolean {
+  return u.members.some((mem) => BUNDLES[u.faction]?.datasheetById.get(mem.datasheetId)?.name === 'Termagants');
 }
 
 function nearestFriend(m: ModelState, all: ModelState[]): number {

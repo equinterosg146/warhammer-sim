@@ -85,30 +85,38 @@ export class Opponent {
   // ---- Deployment ---------------------------------------------------------------------------
 
   private deployOne(game: Game) {
-    const s = game.state;
     const u = game.undeployed('ai')[0];
     if (!u) return;
     if (this.difficulty !== 'easy' && hasCoreAbility(u, 'Deep Strike') && game.canGoToReserves(u)) {
       game.putInReserves(u.id);
       return;
     }
-    const zone = s.battlefield.deployment.ai;
+    this.deployUnit(game, u, this.difficulty !== 'easy');
+  }
+
+  /** Sets up one unit in its owner's zone: shooters in cover, melee units at the front. */
+  deployUnit(game: Game, u: UnitState, careful = true) {
+    this.game = game;
+    const s = game.state;
+    const zone = s.battlefield.deployment[u.owner];
     const ys = zone.map((p) => p.y);
-    const top = Math.min(...ys);
-    const bottom = Math.max(...ys);
+    const towardsEnemy = u.owner === 'ai' ? 1 : -1;
+    const top = towardsEnemy > 0 ? Math.min(...ys) : Math.max(...ys);
+    const bottom = towardsEnemy > 0 ? Math.max(...ys) : Math.min(...ys);
     const ranged = this.isRanged(game, u);
     const candidates: Vec[] = [];
     for (let x = 4; x <= s.battlefield.width - 4; x += 3) {
-      for (let y = top + 2; y <= bottom - 1.5; y += 2) candidates.push({ x, y });
+      for (let k = 2; k <= Math.abs(bottom - top) - 1.5; k += 2) candidates.push({ x, y: top + k * towardsEnemy });
     }
     const scored = candidates
       .map((c) => {
         let score = this.rng() * 2;
         const coverHere = s.battlefield.terrain.some((t) => pointInPolygon(c, t.polygon));
-        if (this.difficulty !== 'easy') {
+        if (careful) {
+          const depth = Math.abs(c.y - top);
           if (ranged && coverHere) score += 6;
-          if (!ranged) score += (c.y - top) * 0.8; // melee units at the front
-          if (ranged) score -= Math.abs(c.y - (top + 4)) * 0.3;
+          if (!ranged) score += depth * 0.8; // melee units at the front
+          if (ranged) score -= Math.abs(depth - 4) * 0.3;
           const objectives = objectiveAreas(s.battlefield).map((a) => centreOf(a.polygon));
           score -= Math.min(...objectives.map((o) => dist(o, c))) * 0.15;
         }
@@ -126,7 +134,7 @@ export class Opponent {
   }
 
   private isRanged(game: Game, u: UnitState): boolean {
-    const enemies = game.unitsOf('player');
+    const enemies = game.unitsOf(other(u.owner));
     const dummy = enemies[0];
     if (!dummy) return true;
     let ranged = 0;

@@ -6,7 +6,7 @@ import type { Stratagem } from '../data/types';
 import { applyMortalWounds, hazardRolls, removeDestroyed, resolveGroup, weaponAbilities, type AttackContext, type AttackGroup } from './attacks';
 import { objectiveAreas } from './battlefield';
 import { parseDice, rollExpr, type DiceRequest, type Roller } from './dice';
-import { circleTouchesPolygon, dist, edgeDistance, pointInPolygon, type Vec } from './geometry';
+import { circleTouchesPolygon, dist, edgeDistance, pointInPolygon, pointPolygonDistance, type Vec } from './geometry';
 import { effectMods, modsFor, withinSynapseRange } from './modifiers';
 import { checkMove, coherencyProblems, ENGAGEMENT_RANGE, engagedWith, isEngaged, type MoveCheck, type MoveRules } from './movement';
 import { armyStratagems, fitsMoment, parseEffect, sectionOf, stratagemText, unitTargetedThisPhase, usedThisPhase, type Moment } from './stratagems';
@@ -279,7 +279,11 @@ export class Game {
       s.cp.ai += 1;
       this.log(`Command phase: both players gain 1 CP (you have ${s.cp.player} CP).`, 'info');
     }
-    if (s.phase === 'shooting') await this.offerReactions(other(s.active), 'start', `Start of the ${s.active === 'player' ? 'your' : 'Ultramarines'} Shooting phase`, []);
+    const whose = s.active === 'player' ? 'your' : 'the Ultramarines’';
+    if (s.phase !== 'command') {
+      await this.offerReactions(s.active, 'start', `Start of ${whose} ${phaseName(s.phase)} phase`, []);
+      await this.offerReactions(other(s.active), 'start', `Start of ${whose} ${phaseName(s.phase)} phase`, []);
+    }
     if (s.phase === 'fight') this.startFightPhase();
     this.changed();
   }
@@ -309,7 +313,11 @@ export class Game {
       const s = this.state;
       const ending = s.phase;
       const reactor = other(s.active);
-      if (ending !== 'command') await this.offerReactions(reactor, 'end', `End of the ${s.active === 'player' ? 'your' : 'Ultramarines'} ${phaseName(ending)} phase`, []);
+      const whose = s.active === 'player' ? 'your' : 'the Ultramarines’';
+      if (ending !== 'command') {
+        await this.offerReactions(s.active, 'end', `End of ${whose} ${phaseName(ending)} phase`, []);
+        await this.offerReactions(reactor, 'end', `End of ${whose} ${phaseName(ending)} phase`, []);
+      }
       if (ending === 'command') this.scorePrimary();
       if (ending === 'movement') {
         for (const u of this.unitsOf(s.active)) if (onBoard(u) && u.flags.move === null) u.flags.move = 'stationary';
@@ -426,7 +434,27 @@ export class Game {
     return this.run(async () => this.doBattleShock(this.unit(unitId), autoPass, true));
   }
 
-  private async doBattleShock(u: UnitState, autoPass: boolean, commandStep: boolean): Promise<boolean> {
+  /** Tyranids army rule: once per battle in either Command phase, every enemy unit takes a battle-shock test. */
+  canUnleashShadow(player: PlayerId): boolean {
+    const s = this.state;
+    if (s.phase !== 'command' || s.usedOnce.includes(`${player}:shadow`) || s.armies[player].faction !== 'tyranids') return false;
+    return this.unitsOf(player).some((u) => onBoard(u) && aliveModels(u).some((m) => modelDatasheetHas(u, m, 'Shadow in the Warp')));
+  }
+
+  async unleashShadow(player: PlayerId): Promise<void> {
+    return this.run(async () => {
+      if (!this.canUnleashShadow(player)) return;
+      this.state.usedOnce.push(`${player}:shadow`);
+      this.log(`${player === 'player' ? 'You unleash' : 'The enemy unleashes'} the Shadow in the Warp: every enemy unit takes a battle-shock test.`, 'stratagem', player);
+      const synapse = this.unitsOf(player).filter((u) => onBoard(u) && unitHasKeyword(u, 'Synapse'));
+      for (const e of this.unitsOf(other(player)).filter(onBoard)) {
+        const near = synapse.some((sy) => unitDistance(sy, e) <= 6);
+        await this.doBattleShock(e, false, false, near ? -1 : 0);
+      }
+    });
+  }
+
+  private async doBattleShock(u: UnitState, autoPass: boolean, commandStep: boolean, modifier = 0): Promise<boolean> {
     if (commandStep && u.owner === this.state.active) {
       await this.offerReactions(u.owner, 'beforeBattleshock', `${u.name} is about to take a battle-shock test`, [u.id]);
     }
@@ -437,8 +465,8 @@ export class Game {
     if (autoPass || insane) {
       total = 99;
     } else {
-      const rolls = await this.roll({ who: u.owner, kind: 'battleshock', label: `Battle-shock test for ${u.name} (${dice}D6, Leadership ${ld}+)`, count: dice, need: `${ld}+ total` });
-      total = rolls.reduce((a, b) => a + b, 0);
+      const rolls = await this.roll({ who: u.owner, kind: 'battleshock', label: `Battle-shock test for ${u.name} (${dice}D6${modifier ? ` ${modifier}` : ''}, Leadership ${ld}+)`, count: dice, need: `${ld - modifier}+ total` });
+      total = rolls.reduce((a, b) => a + b, 0) + modifier;
     }
     const passed = total >= ld;
     if (commandStep) this.state.checklist.push(`shock:${u.id}`);
@@ -548,6 +576,23 @@ export class Game {
       m.x = p.x;
       m.y = p.y;
     }
+  }
+
+  /**
+   * Sets up a unit from reserves outside the Movement phase (Rapid Ingress). Called from inside a
+   * reaction window, so it does not take the busy lock.
+   */
+  arriveNow(unitId: string, positions: Map<string, Vec>): MoveCheck {
+    const u = this.unit(unitId);
+    const check = this.ingressCheck(u, positions);
+    if (!check.ok) return check;
+    this.place(u, positions);
+    u.status = 'onBoard';
+    u.flags.move = 'ingress';
+    u.flags.setUp = true;
+    this.log(`${u.name} arrives from reserves.`, 'move', u.owner);
+    this.changed();
+    return check;
   }
 
   /** 20.04 ingress move (and Deep Strike, 24.09). */
@@ -687,6 +732,35 @@ export class Game {
     return groups;
   }
 
+  /** Enemy units a unit could snap-shoot (Fire Overwatch, 15.08-15.09): visible and within 24". */
+  snapTargets(u: UnitState): UnitState[] {
+    return this.unitsOf(other(u.owner)).filter(
+      (t) => onBoard(t) && aliveModels(u).some((m) => modelUnitDistance(m, t) <= 24 && aliveModels(t).some((tm) => canSeeModel(this.state, m, t, tm).visible)),
+    );
+  }
+
+  /**
+   * Snap shooting: every ranged weapon at one target within 24", hitting only on unmodified 6s.
+   * Called from inside a reaction window, so it does not take the busy lock itself.
+   */
+  async snapShoot(unitId: string, targetId: string): Promise<void> {
+    const u = this.unit(unitId);
+    const target = this.unit(targetId);
+    if (!this.snapTargets(u).includes(target)) return;
+    const groups: AttackGroup[] = [];
+    for (const w of this.rangedWeapons(u)) {
+      const profile = w.profiles[0];
+      const range = Math.min(24, parseRange(profile.weapon.range));
+      const models = aliveModels(u).filter((m) => (m.weapons[w.key] ?? 0) > 0 && modelUnitDistance(m, target) <= range && aliveModels(target).some((tm) => canSeeModel(this.state, m, target, tm).visible));
+      if (models.length > 0) groups.push({ attacker: u, models, weapon: profile.weapon, key: w.key, ranged: true, target, snap: true });
+    }
+    this.log(`${u.name} fires overwatch at ${target.name} (hits only on 6s).`, 'attack', u.owner);
+    u.lastShotTurn = this.state.turn;
+    const ctx = this.ctx();
+    for (const g of groups) await resolveGroup(ctx, g);
+    removeDestroyed(this.state);
+  }
+
   /** Resolves attack groups, giving the defender a chance to react once per target first. */
   private async resolveWithReactions(u: UnitState, groups: AttackGroup[]) {
     const targets = [...new Set(groups.map((g) => g.target.id))];
@@ -799,6 +873,7 @@ export class Game {
       if (effectMods(this.state, u).some((m) => m.kind === 'fightsFirst')) u.flags.fightsFirst = true;
     }
     this.fight = { step: 'pileIn', done: [], picker: this.state.active, passes: [] };
+    this.skipEmptyFightSteps();
   }
 
   /** Units of a player that may pile in now (12.03). */
@@ -861,6 +936,25 @@ export class Game {
 
   /** Finishes a player's pile-in or consolidate step. */
   finishStep(player: PlayerId) {
+    this.finishStepRaw(player);
+    this.skipEmptyFightSteps();
+    this.changed();
+  }
+
+  /** Players with nothing to pile in or consolidate are done with that step straight away. */
+  private skipEmptyFightSteps() {
+    for (let guard = 0; guard < 8 && this.fight; guard++) {
+      const f = this.fight;
+      if (f.step !== 'pileIn' && f.step !== 'consolidate') return;
+      const p = this.stepPlayer();
+      if (!p) return;
+      const units = f.step === 'pileIn' ? this.pileInUnits(p) : this.consolidateUnits(p);
+      if (units.length > 0) return;
+      this.finishStepRaw(p);
+    }
+  }
+
+  private finishStepRaw(player: PlayerId) {
     if (!this.fight) return;
     if (!this.fight.done.includes(player)) this.fight.done.push(player);
     if (this.fight.done.length === 2) {
@@ -874,7 +968,6 @@ export class Game {
         this.fight.step = 'done';
       }
     }
-    this.changed();
   }
 
   fightableUnits(player: PlayerId): UnitState[] {
@@ -979,12 +1072,21 @@ export class Game {
     if (!this.fight) return;
     this.fight.step = 'consolidate';
     this.fight.done = [];
+    this.skipEmptyFightSteps();
   }
 
   /** Units that may consolidate (12.08): those that were eligible to fight this phase. */
   consolidateUnits(player: PlayerId): UnitState[] {
     if (!this.fight || this.fight.step !== 'consolidate') return [];
-    return this.unitsOf(player).filter((u) => onBoard(u) && (u.flags.fightEligible || u.flags.fought));
+    // A unit can only consolidate towards an enemy or an objective within 3".
+    const objectives = objectiveAreas(this.state.battlefield);
+    return this.unitsOf(player).filter(
+      (u) =>
+        onBoard(u) &&
+        (u.flags.fightEligible || u.flags.fought) &&
+        (this.unitsOf(other(player)).some((e) => onBoard(e) && unitDistance(u, e) <= 3) ||
+          objectives.some((a) => aliveModels(u).some((m) => pointPolygonDistance(m, a.polygon) - m.r <= 3))),
+    );
   }
 
   // ---- Stratagems (15) ----------------------------------------------------------------------
@@ -997,15 +1099,26 @@ export class Game {
 
   /** Units a stratagem may target: friendly, not battle-shocked, not already targeted this phase. */
   stratagemTargets(player: PlayerId, s: Stratagem, restrictTo?: string[]): UnitState[] {
-    const text = (sTarget(s) || '').toLowerCase();
+    // "(excluding TITANIC units)" names units that cannot be picked, not a requirement.
+    const target = (sTarget(s) || '').replace(/\(excluding[^)]*\)/gi, '').replace(/excluding [^.,;]*/gi, '');
+    const text = target.toLowerCase();
+    const fromReserves = /in strategic reserves/.test(text);
     return this.unitsOf(player).filter((u) => {
-      if (u.status !== 'onBoard' && !(u.status === 'reserves' && /strategic reserves/.test(text))) return false;
+      if (fromReserves ? u.status !== 'reserves' : u.status !== 'onBoard') return false;
       if (u.battleShocked) return false;
       if (unitTargetedThisPhase(this.state, player, u.id)) return false;
       if (restrictTo && restrictTo.length > 0 && !restrictTo.includes(u.id)) return false;
-      const keywordReq = /(?:friendly|one)\s+([A-Z][A-Z'’ \-/]+?)\s+unit/.exec(sTarget(s));
+      if (/\bunengaged\b/.test(text) && isEngaged(this.state, u)) return false;
+      // Stratagems that make the unit shoot need a unit with guns.
+      if (/\bshoots\b/i.test(sEffect(s)) && !aliveModels(u).some((m) => modelWeapons(u, m).some((w) => w.ranged))) return false;
+      // Keywords written in capitals just before "unit", e.g. "EXPLOSIVES/GRENADES unit".
+      const keywordReq = /((?:[A-Z][A-Z'’-]+)(?:\s*\/\s*[A-Z][A-Z'’-]+|\s[A-Z][A-Z'’-]+)*)\s+unit\b/.exec(target);
       if (keywordReq) {
-        const words = keywordReq[1].split('/').map((w) => w.trim()).filter((w) => w && !/^(TYRANIDS|ADEPTUS ASTARTES)$/i.test(w));
+        const words = keywordReq[1]
+          .replace(/\b(TYRANIDS|ADEPTUS ASTARTES)\b/g, '')
+          .split('/')
+          .map((w) => w.trim())
+          .filter(Boolean);
         if (words.length > 0 && !words.some((w) => unitHasKeyword(u, w) || u.members.some((mm) => BUNDLES[u.faction].datasheetById.get(mm.datasheetId)?.name.toUpperCase() === w.toUpperCase()))) return false;
       }
       return true;
@@ -1039,12 +1152,10 @@ export class Game {
 
   /** Offers a reaction window to a player if they have any stratagem that fits. */
   async offerReactions(player: PlayerId, moment: Moment, prompt: string, unitIds: string[], enemyUnitId?: string) {
-    const stratagems = this.usableStratagems(player, moment).filter((s) => {
-      if (moment === 'targeted' || moment === 'enemyMoved' || moment === 'enemyFought' || moment === 'beforeBattleshock' || moment === 'afterChargeMove') {
-        return this.stratagemTargets(player, s, unitIds).length > 0 || !/one friendly|that /i.test(sTarget(s));
-      }
-      return true;
-    });
+    const aboutUnits = moment === 'targeted' || moment === 'enemyMoved' || moment === 'enemyFought' || moment === 'beforeBattleshock' || moment === 'afterChargeMove';
+    const stratagems = this.usableStratagems(player, moment).filter(
+      (s) => !needsTarget(s) || this.stratagemTargets(player, s, aboutUnits ? unitIds : undefined).length > 0,
+    );
     if (stratagems.length === 0) return;
     await this.hooks.react({ player, moment, prompt, unitIds, enemyUnitId, stratagems });
   }
@@ -1088,7 +1199,14 @@ function isCloseQuarters(u: UnitState, m: ModelState, profile: string): boolean 
 }
 
 const sTarget = (s: Stratagem) => sectionOf(stratagemText(s), 'TARGET');
+/** Whether a stratagem is aimed at one of your units (rather than, say, the whole army). */
+export const needsTarget = (s: Stratagem) => /one friendly|that .*unit|your unit|one .*unit/i.test(sTarget(s));
 const sEffect = (s: Stratagem) => sectionOf(stratagemText(s), 'EFFECT');
+
+function modelDatasheetHas(u: UnitState, m: ModelState, ability: string): boolean {
+  const d = BUNDLES[u.faction].datasheetById.get(u.members[m.member].datasheetId);
+  return d !== undefined && [...d.abilities.faction, ...d.abilities.datasheet, ...d.abilities.other].some((a) => a.name === ability);
+}
 
 function nearestFriend(m: ModelState, all: ModelState[]): number {
   return Math.min(...all.filter((n) => n.id !== m.id).map((n) => edgeDistance(m, n)));

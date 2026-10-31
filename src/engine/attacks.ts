@@ -239,13 +239,14 @@ async function rollWithReroll(
   need: string,
   fails: (v: number) => boolean,
   reroll: 'ones' | 'fails' | null,
+  critOn = 6,
 ): Promise<number[]> {
   if (count === 0) return [];
-  const first = await ctx.roll({ who, kind, label, count, need });
+  const first = await ctx.roll({ who, kind, label, count, need, critOn, rerollOnes: reroll === 'ones' });
   if (!reroll) return first;
   const redo = first.map((v, i) => ({ v, i })).filter(({ v }) => (reroll === 'ones' ? v === 1 : fails(v)));
   if (redo.length === 0) return first;
-  const again = await ctx.roll({ who, kind, label: `Re-roll ${label.charAt(0).toLowerCase()}${label.slice(1)}`, count: redo.length, need, reroll: true });
+  const again = await ctx.roll({ who, kind, label: `Re-roll ${label.charAt(0).toLowerCase()}${label.slice(1)}`, count: redo.length, need, reroll: true, critOn });
   const out = [...first];
   redo.forEach(({ i }, k) => (out[i] = again[k]));
   return out;
@@ -317,7 +318,7 @@ export async function resolveGroup(ctx: AttackContext, g: AttackGroup): Promise<
       return v + hitMod >= skill;
     };
     const need = snap ? '6' : `${skill - hitMod}+${hitMod !== 0 ? ` (BS/WS ${skill}+${hitMod > 0 ? ', +1' : ', -1'})` : ''}${cover ? ', target in cover' : ''}`;
-    const rolls = await rollWithReroll(ctx, who, 'hit', `Hit rolls: ${what}`, attacks, need, (v) => !isHit(v), g.indirect || snap ? null : p.rerollHits);
+    const rolls = await rollWithReroll(ctx, who, 'hit', `Hit rolls: ${what}`, attacks, need, (v) => !isHit(v), g.indirect || snap ? null : p.rerollHits, snap ? 7 : p.critHitOn);
     const sustained = p.abilities.value('sustained hits');
     const lethal = p.abilities.has('lethal hits') && !p.abilities.has('devastating wounds');
     for (const v of rolls) {
@@ -340,7 +341,7 @@ export async function resolveGroup(ctx: AttackContext, g: AttackGroup): Promise<
   const critWoundOn = Math.min(6, ...p.abilities.anti.filter((a) => unitHasKeyword(g.target, a.keyword)).map((a) => a.on));
   const isWound = (v: number) => v !== 1 && (v >= critWoundOn || v + woundMod >= needed);
   const rerollWounds = p.abilities.has('twin-linked') ? 'fails' : p.rerollWounds;
-  const woundRolls = await rollWithReroll(ctx, who, 'wound', `Wound rolls: ${plural(hits, 'hit')} from ${g.weapon.name} (S${p.S} vs T${T})`, hits, `${needed - woundMod}+`, (v) => !isWound(v), rerollWounds);
+  const woundRolls = await rollWithReroll(ctx, who, 'wound', `Wound rolls: ${plural(hits, 'hit')} from ${g.weapon.name} (S${p.S} vs T${T})`, hits, `${needed - woundMod}+`, (v) => !isWound(v), rerollWounds, critWoundOn);
   let wounds = autoWounds;
   let devastating = 0;
   for (const v of woundRolls) {

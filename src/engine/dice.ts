@@ -27,6 +27,58 @@ export interface DiceRequest {
   need?: string;
   /** True when these dice are a re-roll of earlier ones. */
   reroll?: boolean;
+  /** Hit and wound rolls: the unmodified result that is a critical (6, or less with [ANTI] and similar). */
+  critOn?: number;
+  /** Rolls of 1 will be re-rolled, so the dice entry asks how many 1s there were. */
+  rerollOnes?: boolean;
+}
+
+/** Totals the player reads off a big handful of dice instead of typing every die. */
+export interface DiceCounts {
+  /** Hit/wound rolls: successes including criticals. Saves: saves passed. FNP: wounds ignored. Hazard: rolls passed. */
+  successes: number;
+  /** Hit/wound rolls: how many of the successes were criticals. */
+  crits: number;
+  /** Rolls of 1 among the failures (only asked when 1s get re-rolled). */
+  ones: number;
+}
+
+/** Roll kinds that can be entered as totals. */
+export const COUNTABLE: RollKind[] = ['hit', 'wound', 'save', 'fnp', 'hazard'];
+
+export const needNumber = (need?: string) => {
+  const n = Number(/(\d)/.exec(need ?? '')?.[1]);
+  return Number.isFinite(n) ? n : 4;
+};
+
+/**
+ * Turns totals back into dice results the rules can read: criticals become the critical value,
+ * other successes the lowest passing roll, and failures a 1 or the highest failing roll.
+ */
+export function valuesFromCounts(req: DiceRequest, c: DiceCounts): number[] {
+  const out: number[] = [];
+  const push = (v: number, n: number) => {
+    for (let i = 0; i < n; i++) out.push(v);
+  };
+  if (req.kind === 'hit' || req.kind === 'wound') {
+    const need = needNumber(req.need);
+    const crit = req.critOn ?? 6;
+    // When the critical threshold is at or below what is needed (e.g. [ANTI-X 4+] against a 5+), every success is a critical.
+    const crits = need >= crit ? c.successes : Math.min(c.crits, c.successes);
+    const normal = c.successes - crits;
+    const fails = req.count - c.successes;
+    const ones = Math.min(c.ones, fails);
+    const highFail = Math.min(need - 1, crit - 1);
+    push(crit, crits);
+    push(Math.max(2, Math.min(need, crit - 1)), normal);
+    push(1, ones);
+    push(highFail >= 2 ? highFail : 1, fails - ones);
+    return out;
+  }
+  // Saves, Feel No Pain and hazard rolls: a pass is a 6, a failure a 1.
+  push(6, c.successes);
+  push(1, req.count - c.successes);
+  return out;
 }
 
 export type Roller = (request: DiceRequest) => Promise<number[]>;

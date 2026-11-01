@@ -34,6 +34,8 @@ export interface BoardProps {
   showZones: boolean;
   danger: number[][] | null;
   moveTogether: boolean;
+  /** Animated positions overriding real positions, keyed by model id. */
+  animPositions?: Map<string, Vec> | null;
   onDraft: (draft: Map<string, Vec>, done: boolean) => void;
   onBoardClick: (p: Vec) => void;
   onUnitClick: (unitId: string) => void;
@@ -44,7 +46,7 @@ const OWNER_FILL = { player: '#7d4bc4', ai: '#2f6fd1' };
 const OWNER_STROKE = { player: '#d2b3ff', ai: '#9cc2ff' };
 
 export function Board(props: BoardProps) {
-  const { state, draft, draftUnitId } = props;
+  const { state, draft, draftUnitId, animPositions } = props;
   const bf = state.battlefield;
   const svgRef = useRef<SVGSVGElement>(null);
   const drag = useRef<{ modelId: string; start: Vec; base: Map<string, Vec>; moved: boolean } | null>(null);
@@ -63,7 +65,8 @@ export function Board(props: BoardProps) {
     return { x: p.x, y: p.y };
   };
 
-  const posOf = (u: UnitState, id: string, x: number, y: number): Vec => (u.id === draftUnitId && draft?.get(id)) || { x, y };
+  const posOf = (u: UnitState, id: string, x: number, y: number): Vec =>
+    (u.id === draftUnitId && draft?.get(id)) || animPositions?.get(id) || { x, y };
 
   const onPointerDown = (e: ReactPointerEvent<SVGSVGElement>) => {
     const p = toBoard(e);

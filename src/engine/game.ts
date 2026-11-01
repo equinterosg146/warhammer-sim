@@ -69,6 +69,8 @@ export interface GameHooks {
   changed: () => void;
   /** Called when a unit can make a surge move; resolves once the player has moved (or skipped). */
   surge?: (unitId: string, maxDistance: number, label: string) => Promise<void>;
+  /** Called just before an attacker resolves attacks against a target (for aim animations). */
+  attack?: (attackerId: string, targetId: string) => Promise<void>;
 }
 
 export interface ShootAssignment {
@@ -214,9 +216,9 @@ export class Game {
     for (const m of aliveModels(u)) {
       const p = positions.get(m.id) ?? m;
       if (infiltrator) {
-        const nearZone = pointInPolygon(p, enemyZone) || distanceToZone(p, enemyZone) - m.r <= 8;
-        const nearEnemy = this.state.units.some((e) => e.owner !== u.owner && onBoard(e) && aliveModels(e).some((n) => edgeDistance({ ...p, r: m.r }, n) <= 8));
-        if (nearZone || nearEnemy) check.problems.push({ modelId: m.id, message: `${m.name} must be more than 8" from the enemy deployment zone and enemy units (Infiltrators).` });
+        const nearZone = pointInPolygon(p, enemyZone) || distanceToZone(p, enemyZone) - m.r < 9;
+        const nearEnemy = this.state.units.some((e) => e.owner !== u.owner && onBoard(e) && aliveModels(e).some((n) => edgeDistance({ ...p, r: m.r }, n) < 9));
+        if (nearZone || nearEnemy) check.problems.push({ modelId: m.id, message: `${m.name} must be more than 9" from the enemy deployment zone and enemy units (Infiltrators).` });
       } else if (!circleWhollyIn(p, m.r, zone)) {
         check.problems.push({ modelId: m.id, message: `${m.name} must be wholly within your deployment zone.` });
       }
@@ -818,6 +820,7 @@ export class Game {
     for (const id of targets) {
       const target = this.unit(id);
       await this.offerReactions(target.owner, 'targeted', `${u.name} has selected ${target.name} as a target`, [target.id], u.id);
+      if (this.hooks.attack) await this.hooks.attack(u.id, id);
     }
     // Track alive counts before resolving to detect kills for surge moves.
     const beforeCounts = new Map(targets.map((id) => [id, aliveModels(this.unit(id)).length]));
@@ -1255,6 +1258,78 @@ export class Game {
   /** Rolls a dice expression for anything resolved by hand (e.g. "D3" mortal wounds). */
   async rollFor(player: PlayerId, expr: string, label: string) {
     return rollExpr((r) => this.roll(r), parseDice(expr), { who: player, kind: 'other', label });
+  }
+
+  // ---- Broodlord: Vicious Insight (start of Fight phase) ------------------------------------
+
+  /** Enemy units the Broodlord can apply Vicious Insight to (engaged, not already debuffed). */
+  viciousInsightTargets(player: PlayerId): UnitState[] {
+    const s = this.state;
+    if (s.phase !== 'fight') return [];
+    const broodlordUnits = this.unitsOf(player).filter((u) => onBoard(u) && aliveModels(u).some((m) => modelDatasheetHas(u, m, 'Vicious Insight')));
+    if (broodlordUnits.length === 0) return [];
+    const used = s.checklist.includes(`viciousInsight:${s.turn}`);
+    if (used) return [];
+    const enemies = this.unitsOf(other(player)).filter((e) => onBoard(e));
+    return enemies.filter((e) => broodlordUnits.some((b) => engagedWith(this.state, b).includes(e)));
+  }
+
+  applyViciousInsight(player: PlayerId, targetId: string) {
+    const targets = this.viciousInsightTargets(player);
+    const target = targets.find((t) => t.id === targetId);
+    if (!target) return;
+    this.state.checklist.push(`viciousInsight:${this.state.turn}`);
+    const effect: ActiveEffect = {
+      id: `vicious-insight-${this.state.turn}`,
+      unitId: target.id,
+      label: 'Vicious Insight (−1 to hit)',
+      source: 'Broodlord',
+      until: 'phase',
+      turn: this.state.turn,
+      phase: this.state.phase,
+      mods: [{ kind: 'hit', delta: -1 }],
+    };
+    this.state.effects.push(effect);
+    this.log(`Broodlord – Vicious Insight applied to ${target.name}: −1 to Hit rolls this phase.`, 'info', player);
+    this.changed();
+  }
+
+  // ---- Neurotyrant: Neuroloids (Command phase) ----------------------------------------------
+
+  neuroloidTargets(player: PlayerId): { neurotyrant: UnitState; available: UnitState[] } | null {
+    const s = this.state;
+    if (s.phase !== 'command' || s.active !== player) return null;
+    const key = `neuroloid:${player}:${s.round}`;
+    if (s.usedOnce.includes(key)) return null;
+    const neurotyrant = this.unitsOf(player).find((u) => onBoard(u) && aliveModels(u).some((m) => modelDatasheetHas(u, m, 'Neuroloids')));
+    if (!neurotyrant) return null;
+    const granted = s.effects.filter((e) => e.source === 'Neuroloids').map((e) => e.unitId);
+    const available = this.unitsOf(player).filter(
+      (u) => onBoard(u) && u.id !== neurotyrant.id && !granted.includes(u.id) && unitDistance(neurotyrant, u) <= 18,
+    );
+    return { neurotyrant, available };
+  }
+
+  grantNeuroloid(player: PlayerId, targetId: string) {
+    const info = this.neuroloidTargets(player);
+    if (!info || !info.available.find((u) => u.id === targetId)) return;
+    const target = this.unit(targetId);
+    const key = `neuroloid:${player}:${this.state.round}`;
+    const alreadyGranted = this.state.effects.filter((e) => e.source === 'Neuroloids').length;
+    const effect: ActiveEffect = {
+      id: `neuroloid-${targetId}-${this.state.round}`,
+      unitId: target.id,
+      label: 'Neuroloid (counts as within Synapse Range)',
+      source: 'Neuroloids',
+      until: 'nextCommand',
+      turn: this.state.turn,
+      phase: this.state.phase,
+      mods: [],
+    };
+    this.state.effects.push(effect);
+    if (alreadyGranted + 1 >= 2) this.state.usedOnce.push(key);
+    this.log(`Neurotyrant – Neuroloids: ${target.name} counts as within Synapse Range until your next Command phase.`, 'info', player);
+    this.changed();
   }
 }
 

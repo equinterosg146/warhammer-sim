@@ -12,6 +12,7 @@ export const SYNAPSE_RANGE = 6;
 /** Tyranids army rule: within 6" of a friendly SYNAPSE model. */
 export function withinSynapseRange(state: GameState, unit: UnitState): boolean {
   if (unit.faction !== 'tyranids') return false;
+  if (state.effects.some((e) => e.unitId === unit.id && e.source === 'Neuroloids')) return true;
   const synapseModels = state.units
     .filter((u) => u.owner === unit.owner && onBoard(u))
     .flatMap((u) => aliveModels(u).filter((m) => modelHasKeyword(u, m, 'Synapse')).map((m) => ({ u, m })));

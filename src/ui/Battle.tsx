@@ -52,6 +52,17 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
   const [arrival, setArrival] = useState<{ unitId: string; resolve: () => void } | null>(null);
   /** Surge move: reaction pauses until the player has moved the unit (or skipped). */
   const [surge, setSurge] = useState<{ unitId: string; maxDist: number; label: string; resolve: () => void } | null>(null);
+  /** Animated positions for units currently mid-move animation, keyed by model id. */
+  const [animPositions, setAnimPositions] = useState<Map<string, Vec> | null>(null);
+  /** Aim animation shown during attack resolution (attacker → target). */
+  const [aimAnim, setAimAnim] = useState<{ attackerId: string; targetId: string } | null>(null);
+  /** Manual mortal wounds: shown when a stratagem (e.g. Crushing Impact) resolves by hand. */
+  const [manualMW, setManualMW] = useState<{ label: string; resolve: (amount: number, targetId: string) => void } | null>(null);
+  /** Snapshot of all model positions from the previous render, used to detect movement. */
+  const prevPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
+  /** Queue of pending move animations to play sequentially. */
+  const animQueue = useRef<{ unitId: string; models: { id: string; fx: number; fy: number; tx: number; ty: number }[] }[]>([]);
+  const animRaf = useRef<number | null>(null);
   const aiRef = useRef(new Opponent(450));
   const aiRunning = useRef(false);
   /** "Don't ask again this phase": turn and phase the player muted stratagem prompts for. */
@@ -85,7 +96,27 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
         if (!u || u.owner !== 'player') return; // AI ignores surge for now
         await new Promise<void>((resolve) => setSurge({ unitId, maxDist, label, resolve }));
       },
+      attack: async (attackerId, targetId) => {
+        setAimAnim({ attackerId, targetId });
+        await new Promise<void>((r) => setTimeout(r, 700));
+        setAimAnim(null);
+      },
       changed: () => {
+        // Diff positions to build move animations before re-rendering.
+        const moved: { unitId: string; models: { id: string; fx: number; fy: number; tx: number; ty: number }[] }[] = [];
+        for (const u of game.state.units) {
+          const deltas = aliveModels(u).map((m) => {
+            const prev = prevPositions.current.get(m.id);
+            return prev && (Math.abs(prev.x - m.x) > 0.1 || Math.abs(prev.y - m.y) > 0.1)
+              ? { id: m.id, fx: prev.x, fy: prev.y, tx: m.x, ty: m.y }
+              : null;
+          }).filter(Boolean) as { id: string; fx: number; fy: number; tx: number; ty: number }[];
+          if (deltas.length > 0) moved.push({ unitId: u.id, models: deltas });
+        }
+        if (moved.length > 0) {
+          for (const item of moved) animQueue.current.push(item);
+          if (!animRaf.current) drainAnimQueue();
+        }
         force();
         if (saveTimer.current) window.clearTimeout(saveTimer.current);
         saveTimer.current = window.setTimeout(() => onSave(game.state), 400);
@@ -97,6 +128,30 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
   const s = game.state;
   const selected = selectedId ? s.units.find((u) => u.id === selectedId) ?? null : null;
   const mine = s.active === 'player';
+
+  // Snapshot model positions after every render so the changed() diff can compare old vs new.
+  useEffect(() => {
+    const snap = new Map<string, { x: number; y: number }>();
+    for (const u of s.units) for (const m of aliveModels(u)) snap.set(m.id, { x: m.x, y: m.y });
+    prevPositions.current = snap;
+  });
+
+  function drainAnimQueue() {
+    const item = animQueue.current.shift();
+    if (!item) { animRaf.current = null; setAnimPositions(null); return; }
+    const DURATION = 380;
+    const start = performance.now();
+    const step = (now: number) => {
+      const t = Math.min(1, (now - start) / DURATION);
+      const eased = t < 0.5 ? 2 * t * t : -1 + (4 - 2 * t) * t; // ease-in-out
+      const pos = new Map<string, Vec>();
+      for (const m of item.models) pos.set(m.id, { x: m.fx + (m.tx - m.fx) * eased, y: m.fy + (m.ty - m.fy) * eased });
+      setAnimPositions(pos);
+      if (t < 1) { animRaf.current = requestAnimationFrame(step); }
+      else { animRaf.current = requestAnimationFrame(() => drainAnimQueue()); }
+    };
+    animRaf.current = requestAnimationFrame(step);
+  }
 
   // The computer acts whenever it has something to do and no dialog is waiting.
   useEffect(() => {
@@ -232,6 +287,16 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
   // ---- Aiming line (shooting) ----------------------------------------------------------------
 
   const aim: Aim | null = useMemo(() => {
+    // During attack resolution show the aim animation (attacker → target).
+    if (aimAnim) {
+      const attacker = s.units.find((u) => u.id === aimAnim.attackerId);
+      const target = s.units.find((u) => u.id === aimAnim.targetId);
+      if (attacker && target && onBoard(attacker) && onBoard(target)) {
+        const from = aliveModels(attacker)[0] ?? { x: 0, y: 0 };
+        const to = aliveModels(target)[0] ?? { x: 0, y: 0 };
+        return { from, to, color: '#f5c842', label: `${attacker.name} → ${target.name}` };
+      }
+    }
     if (!selected || !hover || s.phase !== 'shooting') return null;
     const target = s.units.find((u) => u.id === hover);
     if (!target || target.owner === selected.owner || !onBoard(target) || !onBoard(selected)) return null;
@@ -247,7 +312,8 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
     if (d > range) return { from, to, color: '#ec6a7e', label: `${d.toFixed(1)}" · out of range (${range}")` };
     const cover = hasCover(s, shooter, target);
     return cover ? { from, to, color: '#f2a65a', label: `${d.toFixed(1)}" · visible, in cover (-1 BS)` } : { from, to, color: '#6fd69a', label: `${d.toFixed(1)}" · clear shot` };
-  }, [selected, hover, s, s.phase]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, hover, s, s.phase, aimAnim]);
 
   const rings: Ring[] = useMemo(() => {
     const result: Ring[] = [];
@@ -464,6 +530,23 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
             ))}
           </div>
         ) : null}
+        {(() => {
+          const nl = game.neuroloidTargets('player');
+          if (!nl) return null;
+          return (
+            <div className="col" style={{ gap: 4 }}>
+              <b className="small" style={{ color: 'var(--gold)' }}>Neurotyrant – Neuroloids</b>
+              <span className="small muted">Grant up to 2 units within 18" Synapse Range until your next Command phase.</span>
+              {nl.available.map((t) => (
+                <div key={t.id} className="row" style={{ gap: 8 }}>
+                  <span className="small grow">{t.name}</span>
+                  <button className="small primary" onClick={() => game.grantNeuroloid('player', t.id)}>Grant</button>
+                </div>
+              ))}
+              {nl.available.length === 0 ? <span className="small muted">No eligible units nearby (all granted or none within 18").</span> : null}
+            </div>
+          );
+        })()}
         {game.canSpawnTermagants('player').map(({ tervigon, targets }) => (
           <div key={tervigon.id} className="col" style={{ gap: 4 }}>
             <b className="small" style={{ color: 'var(--gold)' }}>Spawn Termagants ({tervigon.name})</b>
@@ -676,6 +759,7 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
       if (game.fightStepOver()) return <div className="card">All fights are resolved.</div>;
       if (f.picker !== 'player') return <div className="card">The Ultramarines are choosing a unit to fight…</div>;
       const pickable = game.pickableUnits();
+      const viTargets = game.viciousInsightTargets('player');
       const targets = selected ? game.meleeTargets(selected) : [];
       const target = fightTarget || targets[0]?.id || '';
       return (
@@ -718,6 +802,21 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
                 }}>
                 Fight!
               </button>
+            </div>
+          ) : null}
+          {viTargets.length > 0 ? (
+            <div className="col" style={{ gap: 4, borderTop: '1px solid var(--border)', paddingTop: 6 }}>
+              <b className="small" style={{ color: 'var(--gold)' }}>Broodlord – Vicious Insight</b>
+              <span className="small muted">Pick an engaged enemy: −1 to their Hit rolls this phase.</span>
+              <div className="row" style={{ gap: 6 }}>
+                <select id="vi-target" defaultValue={viTargets[0].id} style={{ flex: 1 }}>
+                  {viTargets.map((t) => <option key={t.id} value={t.id}>{t.name}</option>)}
+                </select>
+                <button className="small primary" onClick={() => {
+                  const sel = (document.getElementById('vi-target') as HTMLSelectElement).value;
+                  game.applyViciousInsight('player', sel);
+                }}>Apply</button>
+              </div>
             </div>
           ) : null}
           {game.canPass('player') ? <button onClick={() => game.passFight('player')}>Pass (no enemy within 5")</button> : null}
@@ -827,16 +926,17 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
         <div className="board-area">
           <Board
             state={s}
-            selectedId={selectedId}
+            selectedId={aimAnim?.attackerId ?? selectedId}
             draft={draft}
             draftUnitId={mode ? selectedId : null}
             badModels={new Set(check?.problems.map((p) => p.modelId).filter((x): x is string => !!x) ?? [])}
             rings={rings}
-            highlight={highlight}
+            highlight={aimAnim ? new Map([[aimAnim.targetId, '#f5c842']]) : highlight}
             aim={aim}
             showZones={s.phase === 'deployment' || mode?.kind === 'deploy'}
             danger={danger}
             moveTogether={moveTogether}
+            animPositions={animPositions}
             onDraft={onDraft}
             onBoardClick={onBoardClick}
             onUnitClick={onUnitClick}
@@ -870,10 +970,32 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
           {s.phase === 'gameOver' ? (
             <div className="card col">
               <h2>{s.winner === 'player' ? 'Victory!' : s.winner === 'ai' ? 'Defeat' : 'Draw'}</h2>
-              <span>
-                Tyranids {s.vp.player} VP · Ultramarines {s.vp.ai} VP
-              </span>
+              <span>Tyranids {s.vp.player} VP · Ultramarines {s.vp.ai} VP</span>
               <span className="small muted">Units destroyed: yours {game.unitsOf('player').filter((u) => u.status === 'destroyed').length}, theirs {game.unitsOf('ai').filter((u) => u.status === 'destroyed').length}.</span>
+              {s.vpLog.length > 0 ? (
+                <details><summary className="small muted" style={{ cursor: 'pointer' }}>VP log</summary>
+                  <div className="col small" style={{ gap: 2, marginTop: 4 }}>
+                    {s.vpLog.map((v, i) => <span key={i} className={v.player === 'player' ? 'ty' : 'um'}>Round {v.round} — {v.player === 'player' ? 'Tyranids' : 'Ultramarines'} +{v.vp} VP ({v.reason})</span>)}
+                  </div>
+                </details>
+              ) : null}
+            </div>
+          ) : null}
+          {s.phase !== 'gameOver' && s.phase !== 'deployment' ? (
+            <div className="card col" style={{ gap: 4 }}>
+              <div className="row" style={{ gap: 6 }}>
+                {s.objectives.map((owner, i) => (
+                  <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 11, padding: '3px 0', borderRadius: 4, background: owner === 'player' ? '#7d4bc455' : owner === 'ai' ? '#2f6fd155' : '#ffffff18', border: `1px solid ${owner === 'player' ? '#c49bff' : owner === 'ai' ? '#9cc2ff' : '#ffffff33'}` }}>
+                    <div style={{ fontWeight: 700, fontSize: 13 }}>{i + 1}</div>
+                    <div style={{ color: owner === 'player' ? '#c49bff' : owner === 'ai' ? '#9cc2ff' : '#aaa' }}>{owner === 'player' ? 'Tyranids' : owner === 'ai' ? 'UMar' : '—'}</div>
+                  </div>
+                ))}
+              </div>
+              {s.vpLog.length > 0 ? (
+                <div className="row small" style={{ gap: 6, flexWrap: 'wrap' }}>
+                  {s.vpLog.slice(-6).map((v, i) => <span key={i} className={v.player === 'player' ? 'ty' : 'um'}>R{v.round} +{v.vp}</span>)}
+                </div>
+              ) : null}
             </div>
           ) : null}
           {s.phase !== 'gameOver' && s.phase !== 'deployment' ? <Coach game={game} /> : null}
@@ -926,6 +1048,7 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
           }}
         />
       ) : null}
+      {manualMW ? <ManualMWDialog game={game} label={manualMW.label} onDone={manualMW.resolve} /> : null}
       {reaction ? (
         <ReactionDialog
           game={game}
@@ -954,7 +1077,13 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
                 const targets = game.snapTargets(unit);
                 const target = enemy && targets.includes(enemy) ? enemy : targets[0];
                 if (target) await game.snapShoot(unit.id, target.id);
-              } else if (result.manual) setNotice(`${used.stratagem.name}: resolve this part yourself — ${result.manual}`);
+              } else if (result.manual) {
+                if (/mortal wound/i.test(result.manual) && used.unitId) {
+                  const label = `${used.stratagem.name}: ${result.manual}`;
+                  await new Promise<void>((res) => setManualMW({ label, resolve: async (amount, targetId) => { await game.mortalWounds(targetId, amount, label); res(); } }));
+                  setManualMW(null);
+                } else setNotice(`${used.stratagem.name}: resolve this part yourself — ${result.manual}`);
+              }
             }
             r();
           }}
@@ -986,6 +1115,32 @@ function meleeChoices(u: UnitState): { key: string; options: string[]; models: n
     groups.set(key, g);
   }
   return [...groups.values()];
+}
+
+/** Dialog shown when a stratagem like Crushing Impact causes mortal wounds to be resolved manually. */
+function ManualMWDialog({ game, label, onDone }: { game: Game; label: string; onDone: (amount: number, targetId: string) => void }) {
+  const [amount, setAmount] = useState(1);
+  const enemies = game.unitsOf('ai').filter(onBoard);
+  const [targetId, setTargetId] = useState(enemies[0]?.id ?? '');
+  return (
+    <div className="dialog-backdrop">
+      <div className="dialog col" style={{ gap: 12, minWidth: 280 }}>
+        <b>{label}</b>
+        <span className="small muted">Roll the dice, then enter how many mortal wounds you caused and which unit suffered them.</span>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <span className="small">Mortal wounds:</span>
+          <input type="number" min={0} max={20} value={amount} onChange={(e) => setAmount(Math.max(0, +e.target.value))} style={{ width: 60 }} />
+        </div>
+        <select value={targetId} onChange={(e) => setTargetId(e.target.value)}>
+          {enemies.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+        </select>
+        <div className="row" style={{ gap: 8 }}>
+          <button className="primary grow" disabled={!targetId || amount < 0} onClick={() => onDone(amount, targetId)}>Apply</button>
+          <button onClick={() => onDone(0, targetId || (enemies[0]?.id ?? ''))}>No wounds</button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 function commandReroll(game: Game): Stratagem | undefined {

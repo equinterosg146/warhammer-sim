@@ -837,7 +837,14 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
         </summary>
         <div className="col" style={{ marginTop: 8 }}>
           {usable.map((st) => (
-            <StratagemRow key={st.id} game={game} st={st} target={stratTarget[st.id]} setTarget={(t) => setStratTarget({ ...stratTarget, [st.id]: t })} onUsed={(msg) => setNotice(msg)} />
+            <StratagemRow key={st.id} game={game} st={st} target={stratTarget[st.id]} setTarget={(t) => setStratTarget({ ...stratTarget, [st.id]: t })} onUsed={(r, stratName) => {
+              if (r.manual && /mortal wound/i.test(r.manual)) {
+                const label = `${stratName}: ${r.manual}`;
+                setManualMW({ label, resolve: async (amount, targetId) => { await game.mortalWounds(targetId, amount, label); setManualMW(null); } });
+              } else {
+                setNotice(r.manual ? `${stratName}: resolve this part yourself — ${r.manual}` : `${stratName} applied.`);
+              }
+            }} />
           ))}
           {usable.length === 0 ? <span className="small muted">None fit this moment. Reaction stratagems pop up by themselves when their moment comes.</span> : null}
           <details>
@@ -1150,7 +1157,7 @@ function commandReroll(game: Game): Stratagem | undefined {
   return st;
 }
 
-function StratagemRow({ game, st, target, setTarget, onUsed }: { game: Game; st: Stratagem; target: string | undefined; setTarget: (t: string) => void; onUsed: (msg: string) => void }) {
+function StratagemRow({ game, st, target, setTarget, onUsed }: { game: Game; st: Stratagem; target: string | undefined; setTarget: (t: string) => void; onUsed: (r: { applied: boolean; manual: string }, stratName: string) => void }) {
   const text = stratagemText(st);
   const targets = game.stratagemTargets('player', st);
   const targetNeeded = needsTarget(st);
@@ -1178,7 +1185,7 @@ function StratagemRow({ game, st, target, setTarget, onUsed }: { game: Game; st:
           disabled={(targetNeeded && !chosen) || game.busy}
           onClick={() => {
             const r = game.useStratagem('player', st.id, targetNeeded ? chosen : null);
-            onUsed(r.manual ? `${st.name}: resolve this part yourself — ${r.manual}` : `${st.name} applied.`);
+            onUsed(r, st.name);
           }}>
           Use
         </button>

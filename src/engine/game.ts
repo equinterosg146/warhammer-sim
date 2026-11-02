@@ -416,10 +416,9 @@ export class Game {
     this.state.objectives = levels.map((l) => (l.player > l.ai ? 'player' : l.ai > l.player ? 'ai' : null));
   }
 
-  /** Practice mission: end of each Command phase from round 2, 5 VP per objective controlled (max 15). */
+  /** Practice mission: end of each Command phase, 5 VP per objective controlled (max 15). */
   private scorePrimary() {
     const s = this.state;
-    if (s.round < 2) return;
     const held = s.objectives.filter((o) => o === s.active).length;
     const vp = Math.min(MAX_PRIMARY_PER_TURN, held * VP_PER_OBJECTIVE);
     if (vp === 0) {

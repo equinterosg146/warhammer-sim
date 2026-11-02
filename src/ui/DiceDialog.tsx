@@ -96,7 +96,7 @@ function TotalsEntry({ request, onDone }: { request: DiceRequest; onDone: (value
           {critsPossible && !onlyCrits ? (
             <Counter
               label={`How many were critical ${word}s?`}
-              hint={`Unmodified ${crit === 6 ? '6s' : `${crit}+`}. They trigger ${request.kind === 'hit' ? 'Sustained Hits and Lethal Hits' : 'Devastating Wounds'} by themselves.`}
+              hint={`Unmodified ${crit === 6 ? '6s' : `${crit}+`}. ${request.kind === 'hit' ? 'Trigger Sustained Hits / Lethal Hits if the weapon has them.' : 'Trigger Devastating Wounds if the weapon has it (check weapon keywords).'}`}
               value={Math.min(crits, successes)}
               max={successes}
               onChange={setCrits}

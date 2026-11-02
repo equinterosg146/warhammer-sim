@@ -104,7 +104,7 @@ const SELF: Record<string, EffectSpec[]> = {
       id: 'singular-purpose-objective',
       label: 'Singular Purpose',
       condition: { switch: 'In range of the chosen objective' },
-      mods: [{ kind: 'fnp', value: 5 }, note('Objective Control 15')],
+      mods: [{ kind: 'fnp', value: 5 }, { kind: 'stat', stat: 'OC', delta: 10 }],
     },
   ],
   'Norn Assimilator': [
@@ -112,7 +112,7 @@ const SELF: Record<string, EffectSpec[]> = {
       id: 'singular-purpose-objective',
       label: 'Singular Purpose',
       condition: { switch: 'In range of the chosen objective' },
-      mods: [{ kind: 'fnp', value: 5 }, note('Objective Control 15')],
+      mods: [{ kind: 'fnp', value: 5 }, { kind: 'stat', stat: 'OC', delta: 10 }],
     },
   ],
 };

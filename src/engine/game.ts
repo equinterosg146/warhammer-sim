@@ -171,8 +171,39 @@ export class Game {
   }
 
   /** Roll for Deadly Demise on any unit that was just removed from the board. */
+  /** Secondary objectives: Assassination (5 VP, once, per player) and Bring It Down (3 VP per Monster/Vehicle). */
+  private scoreSecondaries(gone: UnitState[]): void {
+    const s = this.state;
+    s.secondaryLog ??= [];
+    s.secondaryScored ??= [];
+    for (const u of gone) {
+      const attacker = other(u.owner);
+      const d = BUNDLES[u.faction]?.datasheetById.get(u.members[0]?.datasheetId);
+      if (!d) continue;
+      const isCharacter = d.keywords.some((k) => k.toLowerCase() === 'character');
+      const isBigTarget = isMonsterOrVehicle(u, u.models[0]);
+      if (isCharacter) {
+        const key = `${attacker}:assassination`;
+        if (!s.secondaryScored.includes(key)) {
+          s.secondaryScored.push(key);
+          const vp = 5;
+          s.vp[attacker] += vp;
+          s.secondaryLog.push({ round: s.round, player: attacker, vp, reason: `Assassination (${u.name})` });
+          this.log(`Secondary — Assassination: ${u.name} destroyed (+${vp} VP).`, 'score', attacker);
+        }
+      }
+      if (isBigTarget) {
+        const vp = 3;
+        s.vp[attacker] += vp;
+        s.secondaryLog.push({ round: s.round, player: attacker, vp, reason: `Bring It Down (${u.name})` });
+        this.log(`Secondary — Bring It Down: ${u.name} destroyed (+${vp} VP).`, 'score', attacker);
+      }
+    }
+  }
+
   private async triggerDeadlyDemise(): Promise<void> {
     const gone = removeDestroyed(this.state);
+    this.scoreSecondaries(gone);
     for (const u of gone) {
       for (let i = 0; i < u.members.length; i++) {
         const d = BUNDLES[u.faction]?.datasheetById.get(u.members[i].datasheetId);
@@ -778,6 +809,15 @@ export class Game {
         if (ab.has('one shot')) u.oneShotUsed.push(g.key);
       }
       await hazardRolls(this.ctx(), u, hazardous);
+      // Death Scream: after this model has shot, one hit unit takes a battle-shock test at -1.
+      if (aliveModels(u).some((m) => modelDatasheetHas(u, m, 'Death Scream'))) {
+        const hitTargets = [...new Set(groups.map((g) => g.target.id))].map((id) => this.unit(id)).filter((t) => onBoard(t));
+        if (hitTargets.length > 0) {
+          const target = hitTargets[0];
+          this.log(`Death Scream: ${target.name} must take a Battle-shock test (−1 to the result).`, 'warn', u.owner);
+          await this.doBattleShock(target, false, false, -1);
+        }
+      }
     });
   }
 

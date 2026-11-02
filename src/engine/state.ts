@@ -178,6 +178,10 @@ export interface GameState {
   vp: Record<PlayerId, number>;
   /** Primary VP scored in each round, for the summary. */
   vpLog: { round: number; player: PlayerId; vp: number; reason: string }[];
+  /** Secondary VP events (Assassination, Bring It Down, etc.) */
+  secondaryLog: { round: number; player: PlayerId; vp: number; reason: string }[];
+  /** Secondary objectives already scored, keyed by "player:objectiveId". */
+  secondaryScored: string[];
   units: UnitState[];
   armies: Record<PlayerId, ArmyInfo>;
   /** Controller of each objective, or null. */

@@ -532,6 +532,28 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
             ))}
           </div>
         ) : null}
+        {game.unitsOf('player').filter(onBoard).flatMap((u) =>
+          unitBuffs(s, u).filter((b) => !b.effect.listWide && b.decidedBy === 'player').map((b) => ({ u, b }))
+        ).length > 0 ? (
+          <div className="col" style={{ gap: 4 }}>
+            <b className="small">Unit ability switches</b>
+            {game.unitsOf('player').filter(onBoard).flatMap((u) =>
+              unitBuffs(s, u).filter((b) => !b.effect.listWide && b.decidedBy === 'player').map((b) => (
+                <label key={`${u.id}:${b.effect.id}`} className="row small" style={{ gap: 6 }}>
+                  <input
+                    type="checkbox"
+                    checked={b.active}
+                    onChange={() => {
+                      u.switches[b.effect.id] = !b.active;
+                      game.changed();
+                    }}
+                  />
+                  <span>{u.name} — {b.effect.label}{b.effect.condition !== 'always' ? ` (${(b.effect.condition as { switch: string }).switch})` : ''}</span>
+                </label>
+              ))
+            )}
+          </div>
+        ) : null}
         {(() => {
           const nl = game.neuroloidTargets('player');
           if (!nl) return null;
@@ -994,23 +1016,7 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
               ) : null}
             </div>
           ) : null}
-          {s.phase !== 'gameOver' && s.phase !== 'deployment' ? (
-            <div className="card col" style={{ gap: 4 }}>
-              <div className="row" style={{ gap: 6 }}>
-                {s.objectives.map((owner, i) => (
-                  <div key={i} style={{ flex: 1, textAlign: 'center', fontSize: 11, padding: '3px 0', borderRadius: 4, background: owner === 'player' ? '#7d4bc455' : owner === 'ai' ? '#2f6fd155' : '#ffffff18', border: `1px solid ${owner === 'player' ? '#c49bff' : owner === 'ai' ? '#9cc2ff' : '#ffffff33'}` }}>
-                    <div style={{ fontWeight: 700, fontSize: 13 }}>{i + 1}</div>
-                    <div style={{ color: owner === 'player' ? '#c49bff' : owner === 'ai' ? '#9cc2ff' : '#aaa' }}>{owner === 'player' ? 'Tyranids' : owner === 'ai' ? 'UMar' : '—'}</div>
-                  </div>
-                ))}
-              </div>
-              {s.vpLog.length > 0 ? (
-                <div className="row small" style={{ gap: 6, flexWrap: 'wrap' }}>
-                  {s.vpLog.slice(-6).map((v, i) => <span key={i} className={v.player === 'player' ? 'ty' : 'um'}>R{v.round} +{v.vp}</span>)}
-                </div>
-              ) : null}
-            </div>
-          ) : null}
+          {s.phase !== 'gameOver' && s.phase !== 'deployment' ? <ObjectivesPanel game={game} /> : null}
           {s.phase !== 'gameOver' && s.phase !== 'deployment' ? <Coach game={game} /> : null}
           {actionPanel()}
           {notice ? <div className="card small" style={{ borderColor: 'var(--warn)' }}>{notice}</div> : null}
@@ -1129,6 +1135,95 @@ function meleeChoices(u: UnitState): { key: string; options: string[]; models: n
     groups.set(key, g);
   }
   return [...groups.values()];
+}
+
+function ObjectivesPanel({ game }: { game: Game }) {
+  const s = game.state;
+  const held = s.objectives.filter((o) => o === 'player').length;
+  const aiHeld = s.objectives.filter((o) => o === 'ai').length;
+  const projectedVP = Math.min(15, held * 5);
+
+  // Secondary progress
+  const scored = s.secondaryScored ?? [];
+  const secLog = s.secondaryLog ?? [];
+  const assassinDone = scored.includes('player:assassination');
+  const aiAssassinDone = scored.includes('ai:assassination');
+  const playerBID = secLog.filter((e) => e.player === 'player' && e.reason.startsWith('Bring It Down')).reduce((n, e) => n + e.vp, 0);
+  const aiBID = secLog.filter((e) => e.player === 'ai' && e.reason.startsWith('Bring It Down')).reduce((n, e) => n + e.vp, 0);
+  const playerSecVP = secLog.filter((e) => e.player === 'player').reduce((n, e) => n + e.vp, 0);
+  const aiSecVP = secLog.filter((e) => e.player === 'ai').reduce((n, e) => n + e.vp, 0);
+
+  const OBJ_COLOR = (o: 'player' | 'ai' | null) => o === 'player' ? '#7d4bc455' : o === 'ai' ? '#2f6fd155' : '#ffffff14';
+  const OBJ_BORDER = (o: 'player' | 'ai' | null) => o === 'player' ? '#c49bff' : o === 'ai' ? '#9cc2ff' : '#ffffff33';
+  const OBJ_TEXT = (o: 'player' | 'ai' | null) => o === 'player' ? '#c49bff' : o === 'ai' ? '#9cc2ff' : '#666';
+
+  return (
+    <div className="col" style={{ gap: 6 }}>
+      {/* Primary mission card */}
+      <div className="card col" style={{ gap: 6 }}>
+        <div className="row" style={{ gap: 6, alignItems: 'baseline' }}>
+          <span style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--muted)' }}>Primary</span>
+          <span style={{ fontWeight: 700, fontSize: 13 }}>Hold Objectives</span>
+        </div>
+        <span className="small muted">5 VP per objective held at end of your Command phase (max 15/turn, max 45 total).</span>
+        {/* Objective markers */}
+        <div className="row" style={{ gap: 5 }}>
+          {s.objectives.map((owner, i) => (
+            <div key={i} style={{ flex: 1, textAlign: 'center', padding: '4px 0', borderRadius: 5, background: OBJ_COLOR(owner), border: `1px solid ${OBJ_BORDER(owner)}` }}>
+              <div style={{ fontWeight: 800, fontSize: 14 }}>{i + 1}</div>
+              <div style={{ fontSize: 10, color: OBJ_TEXT(owner) }}>{owner === 'player' ? 'Tyranids' : owner === 'ai' ? 'UMar' : '—'}</div>
+            </div>
+          ))}
+        </div>
+        {/* Live projection */}
+        <div className="row" style={{ gap: 8, fontSize: 12, flexWrap: 'wrap' }}>
+          <span style={{ color: '#c49bff' }}>You: {held} obj → <b>+{projectedVP} VP</b> next Command</span>
+          <span style={{ color: '#9cc2ff' }}>UMar: {aiHeld} obj → <b>+{Math.min(15, aiHeld * 5)} VP</b></span>
+        </div>
+        {/* Primary VP log */}
+        {s.vpLog.length > 0 ? (
+          <div className="row small" style={{ gap: 5, flexWrap: 'wrap' }}>
+            {s.vpLog.map((v, i) => (
+              <span key={i} className={v.player === 'player' ? 'ty' : 'um'} style={{ fontSize: 11 }}>R{v.round} {v.player === 'player' ? 'TY' : 'UM'} +{v.vp}</span>
+            ))}
+          </div>
+        ) : null}
+      </div>
+
+      {/* Secondary missions card */}
+      <div className="card col" style={{ gap: 6 }}>
+        <div className="row" style={{ gap: 6, alignItems: 'baseline' }}>
+          <span style={{ fontWeight: 700, fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, color: 'var(--muted)' }}>Secondary</span>
+          <span style={{ fontWeight: 700, fontSize: 13 }}>Fixed Objectives</span>
+        </div>
+        {/* Assassination */}
+        <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', marginTop: 4, background: assassinDone ? '#c49bff' : '#444', flexShrink: 0 }} />
+          <div className="col" style={{ gap: 1 }}>
+            <span style={{ fontWeight: 700, fontSize: 12 }}>Assassination <span style={{ color: assassinDone ? '#c49bff' : '#777' }}>{assassinDone ? '✓ +5 VP' : '5 VP'}</span></span>
+            <span className="small muted">Destroy an enemy CHARACTER unit (once per game).</span>
+            {aiAssassinDone ? <span style={{ fontSize: 11, color: '#9cc2ff' }}>UMar scored Assassination.</span> : null}
+          </div>
+        </div>
+        {/* Bring It Down */}
+        <div className="row" style={{ gap: 8, alignItems: 'flex-start' }}>
+          <div style={{ width: 8, height: 8, borderRadius: '50%', marginTop: 4, background: playerBID > 0 ? '#c49bff' : '#444', flexShrink: 0 }} />
+          <div className="col" style={{ gap: 1 }}>
+            <span style={{ fontWeight: 700, fontSize: 12 }}>Bring It Down <span style={{ color: playerBID > 0 ? '#c49bff' : '#777' }}>+{playerBID} VP</span></span>
+            <span className="small muted">+3 VP each time you destroy an enemy MONSTER or VEHICLE.</span>
+            {aiBID > 0 ? <span style={{ fontSize: 11, color: '#9cc2ff' }}>UMar scored +{aiBID} VP (Bring It Down).</span> : null}
+          </div>
+        </div>
+        {/* Secondary VP total */}
+        {(playerSecVP > 0 || aiSecVP > 0) ? (
+          <div className="row small" style={{ gap: 10, paddingTop: 2, borderTop: '1px solid #ffffff18' }}>
+            {playerSecVP > 0 ? <span style={{ color: '#c49bff' }}>Your secondary VP: <b>+{playerSecVP}</b></span> : null}
+            {aiSecVP > 0 ? <span style={{ color: '#9cc2ff' }}>UMar secondary VP: <b>+{aiSecVP}</b></span> : null}
+          </div>
+        ) : null}
+      </div>
+    </div>
+  );
 }
 
 /** Dialog shown when a stratagem like Crushing Impact causes mortal wounds to be resolved manually. */

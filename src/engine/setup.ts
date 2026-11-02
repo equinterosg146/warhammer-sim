@@ -29,6 +29,8 @@ export function newGame(o: NewGameOptions): GameState {
     cp: { player: 0, ai: 0 },
     vp: { player: 0, ai: 0 },
     vpLog: [],
+    secondaryLog: [],
+    secondaryScored: [],
     units,
     armies: {
       player: { faction: 'tyranids', name: o.playerList.name, detachmentIds: o.playerList.detachmentIds, points: listPoints(tyranids, o.playerList), list: o.playerList, switches: {} },

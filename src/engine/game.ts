@@ -163,10 +163,36 @@ export class Game {
       return await fn();
     } finally {
       this.busy = false;
-      removeDestroyed(this.state);
+      await this.triggerDeadlyDemise();
       this.updateObjectives();
       this.checkGameOver();
       this.changed();
+    }
+  }
+
+  /** Roll for Deadly Demise on any unit that was just removed from the board. */
+  private async triggerDeadlyDemise(): Promise<void> {
+    const gone = removeDestroyed(this.state);
+    for (const u of gone) {
+      for (let i = 0; i < u.members.length; i++) {
+        const d = BUNDLES[u.faction]?.datasheetById.get(u.members[i].datasheetId);
+        if (!d) continue;
+        const dd = d.abilities.core.find((a) => a.name === 'Deadly Demise');
+        if (!dd?.parameter) continue;
+        for (const m of u.models.filter((x) => x.member === i)) {
+          const [roll] = await this.roll({ who: u.owner, kind: 'other', label: `Deadly Demise ${dd.parameter}: ${m.name} destroyed`, count: 1 });
+          if (roll >= 6) {
+            this.log(`Deadly Demise! ${m.name} detonates (rolled ${roll}): units within 6" suffer ${dd.parameter} mortal wounds.`, 'warn', u.owner);
+            for (const target of this.state.units.filter((t) => onBoard(t) && t.id !== u.id)) {
+              if (!aliveModels(target).some((tm) => edgeDistance(m, tm) <= 6)) continue;
+              const wounds = await rollExpr((r) => this.roll(r), parseDice(dd.parameter), { who: u.owner, kind: 'other', label: `Deadly Demise wounds on ${target.name}` });
+              if (wounds > 0) await applyMortalWounds(this.ctx(), target, wounds, `Deadly Demise (${m.name})`);
+            }
+          } else {
+            this.log(`Deadly Demise: ${m.name} rolled ${roll} (no explosion).`, 'info', u.owner);
+          }
+        }
+      }
     }
   }
 
@@ -352,7 +378,7 @@ export class Game {
       }
     }
     s.effects = s.effects.filter((e) => e.until !== 'turn' || e.turn !== s.turn);
-    removeDestroyed(s);
+    await this.triggerDeadlyDemise();
     this.updateObjectives();
     if (s.active !== s.firstPlayer) {
       // End of battle round.
@@ -810,7 +836,7 @@ export class Game {
     u.lastShotTurn = this.state.turn;
     const ctx = this.ctx();
     for (const g of groups) await resolveGroup(ctx, g);
-    removeDestroyed(this.state);
+    await this.triggerDeadlyDemise();
   }
 
   /** Resolves attack groups, giving the defender a chance to react once per target first. */
@@ -831,7 +857,7 @@ export class Game {
     }
     // Effects that last "until that enemy unit has attacked".
     this.state.effects = this.state.effects.filter((e) => !e.label.endsWith('(until attacked)'));
-    removeDestroyed(this.state);
+    await this.triggerDeadlyDemise();
     // Surge moves: triggered after shooting kills models in qualifying units.
     if (this.hooks.surge && this.state.phase === 'shooting') {
       for (const id of targets) {
@@ -1127,7 +1153,7 @@ export class Game {
       let hazardous = 0;
       for (const g of groups) if (weaponAbilities(g.weapon.keywords).has('hazardous')) hazardous += g.models.length;
       await hazardRolls(this.ctx(), u, hazardous);
-      removeDestroyed(this.state);
+      await this.triggerDeadlyDemise();
       if (this.fight) {
         this.fight.passes = [];
         await this.offerReactions(other(u.owner), 'enemyFought', `${u.name} has resolved its attacks`, this.fightableUnits(other(u.owner)).map((x) => x.id), u.id);
@@ -1188,7 +1214,17 @@ export class Game {
     const target = (sTarget(s) || '').replace(/\(excluding[^)]*\)/gi, '').replace(/excluding [^.,;]*/gi, '');
     const text = target.toLowerCase();
     const fromReserves = /in strategic reserves/.test(text);
+    const returnsModels = /return.*destroyed model/i.test(sEffect(s));
     return this.unitsOf(player).filter((u) => {
+      if (returnsModels) {
+        // Include onBoard units with casualties AND fully destroyed units.
+        if (u.status !== 'onBoard' && u.status !== 'destroyed') return false;
+        if (!u.models.some((m) => m.w === 0)) return false;
+        // Must have ENDLESS MULTITUDE keyword (check datasheets directly for destroyed units).
+        const hasKeyword = u.members.some((mem) => BUNDLES[u.faction]?.datasheetById.get(mem.datasheetId)?.keywords.some((k) => k === 'Endless Multitude'));
+        if (!hasKeyword) return false;
+        return true;
+      }
       if (fromReserves ? u.status !== 'reserves' : u.status !== 'onBoard') return false;
       if (u.battleShocked) return false;
       if (unitTargetedThisPhase(this.state, player, u.id)) return false;
@@ -1252,6 +1288,22 @@ export class Game {
       await applyMortalWounds(this.ctx(), u, amount, label);
       this.log(`${u.name} suffers ${amount} mortal wound${amount === 1 ? '' : 's'} (${label}).`, 'attack');
     });
+  }
+
+  /** Return dead models to a unit (e.g. Endless Swarm). Restores up to `count` dead models to maxW. */
+  returnModels(unitId: string, count: number): number {
+    const u = this.unit(unitId);
+    if (u.status !== 'onBoard' && u.status !== 'destroyed') return 0;
+    const dead = u.models.filter((m) => m.w === 0);
+    const restore = dead.slice(0, count);
+    for (const m of restore) m.w = m.maxW;
+    if (u.status === 'destroyed' && restore.length > 0) u.status = 'onBoard';
+    if (restore.length > 0) {
+      this.log(`${restore.length} model${restore.length === 1 ? '' : 's'} returned to ${u.name}.`, 'info', u.owner);
+      this.updateObjectives();
+      this.changed();
+    }
+    return restore.length;
   }
 
   /** Rolls a dice expression for anything resolved by hand (e.g. "D3" mortal wounds). */

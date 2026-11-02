@@ -58,6 +58,8 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
   const [aimAnim, setAimAnim] = useState<{ attackerId: string; targetId: string } | null>(null);
   /** Manual mortal wounds: shown when a stratagem (e.g. Crushing Impact) resolves by hand. */
   const [manualMW, setManualMW] = useState<{ label: string; resolve: (amount: number, targetId: string) => void } | null>(null);
+  /** Model return dialog: shown when Endless Swarm (or similar) is used. */
+  const [manualReturn, setManualReturn] = useState<{ stratName: string; targetId: string } | null>(null);
   /** Snapshot of all model positions from the previous render, used to detect movement. */
   const prevPositions = useRef<Map<string, { x: number; y: number }>>(new Map());
   /** Queue of pending move animations to play sequentially. */
@@ -841,6 +843,10 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
               if (r.manual && /mortal wound/i.test(r.manual)) {
                 const label = `${stratName}: ${r.manual}`;
                 setManualMW({ label, resolve: async (amount, targetId) => { await game.mortalWounds(targetId, amount, label); setManualMW(null); } });
+              } else if (r.manual && /return.*destroyed model/i.test(r.manual)) {
+                const tid = stratTarget[st.id] || game.stratagemTargets('player', st)[0]?.id;
+                if (tid) setManualReturn({ stratName, targetId: tid });
+                else setNotice(`${stratName}: no Endless Multitude unit with casualties to target.`);
               } else {
                 setNotice(r.manual ? `${stratName}: resolve this part yourself — ${r.manual}` : `${stratName} applied.`);
               }
@@ -1056,6 +1062,7 @@ export function Battle({ initial, onSave, onQuit }: { initial: GameState; onSave
         />
       ) : null}
       {manualMW ? <ManualMWDialog game={game} label={manualMW.label} onDone={manualMW.resolve} /> : null}
+      {manualReturn ? <ManualReturnDialog game={game} stratName={manualReturn.stratName} targetId={manualReturn.targetId} onDone={(d3) => { const returned = game.returnModels(manualReturn.targetId, d3 + 3); setNotice(`${manualReturn.stratName}: returned ${returned} model${returned === 1 ? '' : 's'}.`); setManualReturn(null); }} /> : null}
       {reaction ? (
         <ReactionDialog
           game={game}
@@ -1145,6 +1152,30 @@ function ManualMWDialog({ game, label, onDone }: { game: Game; label: string; on
           <button className="primary grow" disabled={!targetId || amount < 0} onClick={() => onDone(amount, targetId)}>Apply</button>
           <button onClick={() => onDone(0, targetId || (enemies[0]?.id ?? ''))}>No wounds</button>
         </div>
+      </div>
+    </div>
+  );
+}
+
+function ManualReturnDialog({ game, stratName, targetId, onDone }: { game: Game; stratName: string; targetId: string; onDone: (d3: number) => void }) {
+  const [d3, setD3] = useState<number | ''>(1);
+  const unit = game.state.units.find((u) => u.id === targetId);
+  const dead = unit ? unit.models.filter((m) => m.w === 0).length : 0;
+  const total = d3 !== '' ? d3 + 3 : 3;
+  return (
+    <div className="dialog-overlay">
+      <div className="card col" style={{ gap: 10, maxWidth: 320, background: 'var(--surface)' }}>
+        <b>{stratName}</b>
+        <span className="small muted">Target: {unit?.name ?? '—'} ({dead} dead model{dead === 1 ? '' : 's'} available)</span>
+        <div className="row" style={{ gap: 8, alignItems: 'center' }}>
+          <span className="small">Roll D3:</span>
+          {[1, 2, 3].map((v) => (
+            <button key={v} className={`small ${d3 === v ? 'primary' : ''}`} onClick={() => setD3(v)}>{v}</button>
+          ))}
+          <input type="number" min={1} max={3} value={d3} onChange={(e) => setD3(Math.min(3, Math.max(1, +e.target.value)))} style={{ width: 50 }} />
+        </div>
+        <span className="small">Returns <b>{Math.min(total, dead)}</b> model{Math.min(total, dead) === 1 ? '' : 's'} (D3={d3}+3={total}, capped at {dead} dead).</span>
+        <button className="primary" disabled={d3 === ''} onClick={() => onDone(d3 !== '' ? d3 : 1)}>Return models</button>
       </div>
     </div>
   );
